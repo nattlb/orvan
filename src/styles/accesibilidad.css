@@ -1,0 +1,22 @@
+/* Accesibilidad */
+
+/* Foco visible: quien navega con teclado siempre ve dónde está */
+:focus-visible {
+  outline: 2px solid #60A5FA;
+  outline-offset: 3px;
+}
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline-offset: 1px;
+}
+
+/* Quien tiene activada la opción "reducir movimiento" en su sistema no recibe animaciones largas */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto !important; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
