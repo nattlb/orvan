@@ -1,5 +1,6 @@
 
 import { useEffect, useState } from 'react';
+import { obtenerImagen } from '../services/imagenes';
 import './EquipoInteractivo.css';
 
 export default function EquipoInteractivo({ integrantes = [] }) {
@@ -54,8 +55,9 @@ export default function EquipoInteractivo({ integrantes = [] }) {
               <span className="equipo-miniatura">
                 {persona.imagen ? (
                   <img
-                    src={persona.imagen}
-                    alt=""
+                    src={obtenerImagen(persona.imagen)}
+                    alt={persona.nombre}
+                    loading="lazy"
                   />
                 ) : (
                   <span>
@@ -83,11 +85,11 @@ export default function EquipoInteractivo({ integrantes = [] }) {
           key={actual.id}
           className="equipo-destacado"
         >
-          {/* Fotografía */}
+          {/* FOTOGRAFÍA */}
           <div className="equipo-foto">
             {actual.imagen ? (
               <img
-                src={actual.imagen}
+                src={obtenerImagen(actual.imagen)}
                 alt={actual.nombre}
               />
             ) : (
@@ -97,7 +99,7 @@ export default function EquipoInteractivo({ integrantes = [] }) {
             )}
           </div>
 
-          {/* Información */}
+          {/* INFORMACIÓN */}
           <div className="equipo-informacion">
             <span className="equipo-etiqueta">
               NUESTRO EQUIPO
