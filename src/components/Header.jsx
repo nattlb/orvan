@@ -1,4 +1,6 @@
+
 import { useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { usePrefs } from '../context/PrefsContext';
 import BotonSesion from './BotonSesion';
 
@@ -16,24 +18,112 @@ const LINKS = [
 export default function Header() {
   const { tema, alternarTema } = usePrefs();
 
+  const location = useLocation();
+  const navigate = useNavigate();
+
   const [fija, setFija] = useState(false);
   const [abierto, setAbierto] = useState(false);
 
+  // Buscar la sección correspondiente
+  const buscarSeccion = (id) => {
+    const seccion = document.getElementById(id);
+
+    if (seccion) return seccion;
+
+    // Buscar la sección de reseñas por su título
+    if (id === 'resenas') {
+      const titulos = document.querySelectorAll('h1, h2, h3, h4');
+
+      const titulo = Array.from(titulos).find((elemento) =>
+        elemento.textContent
+          .toLowerCase()
+          .includes('lo que dicen nuestros clientes')
+      );
+
+      if (titulo) {
+        return titulo.closest('section') || titulo;
+      }
+    }
+
+    return null;
+  };
+
+  // Desplazarse suavemente
+  const desplazarASeccion = (id) => {
+    const seccion = buscarSeccion(id);
+
+    if (seccion) {
+      seccion.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    }
+  };
+
+  // Navegación del menú
+  const irASeccion = (e, href) => {
+    e.preventDefault();
+    setAbierto(false);
+
+    const id = href.split('#')[1];
+
+    if (!id) return;
+
+    if (location.pathname !== '/') {
+      navigate(href);
+      return;
+    }
+
+    if (location.hash !== `#${id}`) {
+      navigate(href);
+    }
+
+    setTimeout(() => {
+      desplazarASeccion(id);
+    }, 100);
+  };
+
+  // Desplazamiento al cambiar de ruta
+  useEffect(() => {
+    if (location.pathname !== '/' || !location.hash) {
+      return;
+    }
+
+    const id = decodeURIComponent(location.hash.substring(1));
+
+    const tiempo = setTimeout(() => {
+      desplazarASeccion(id);
+    }, 150);
+
+    return () => clearTimeout(tiempo);
+  }, [location.pathname, location.hash]);
+
+  // Cerrar menú con Escape
   useEffect(() => {
     const alTeclear = (e) => {
-      if (e.key === 'Escape') setAbierto(false);
+      if (e.key === 'Escape') {
+        setAbierto(false);
+      }
     };
 
     window.addEventListener('keydown', alTeclear);
-    return () => window.removeEventListener('keydown', alTeclear);
+
+    return () => {
+      window.removeEventListener('keydown', alTeclear);
+    };
   }, []);
 
+  // Estilo del encabezado al desplazarse
   useEffect(() => {
     const f = () => setFija(window.scrollY > 30);
+
     f();
 
     window.addEventListener('scroll', f, { passive: true });
-    return () => window.removeEventListener('scroll', f);
+
+    return () => {
+      window.removeEventListener('scroll', f);
+    };
   }, []);
 
   return (
@@ -64,15 +154,15 @@ export default function Header() {
 
           <nav className="flex flex-col gap-2">
             {LINKS.map((l) => (
-              <a
+              <Link
                 key={l.href}
-                href={l.href}
+                to={l.href}
                 className="drawer-link"
-                onClick={() => setAbierto(false)}
+                onClick={(e) => irASeccion(e, l.href)}
               >
                 <span>{l.texto}</span>
                 <span>&rarr;</span>
-              </a>
+              </Link>
             ))}
           </nav>
         </div>
@@ -82,6 +172,7 @@ export default function Header() {
       <nav className={`fixed top-0 inset-x-0 z-40 ${fija ? 'fija' : ''}`}>
         <div className="cont flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-5">
+            {/* Botón del menú */}
             <button
               className={`btn-burger ${abierto ? 'active' : ''}`}
               aria-label="Abrir menú"
@@ -146,9 +237,10 @@ export default function Header() {
               </span>
             </button>
 
-            {/* Logo */}
-            <a
-              href="/#inicio"
+            {/* Logo ORVAN */}
+            <Link
+              to="/#inicio"
+              onClick={(e) => irASeccion(e, '/#inicio')}
               className="group titulo font-light tracking-[.3em] text-lg flex items-center gap-3"
             >
               <svg
@@ -167,9 +259,10 @@ export default function Header() {
               </svg>
 
               ORVAN
-            </a>
+            </Link>
           </div>
 
+          {/* Inicio de sesión */}
           <div className="flex items-center gap-3">
             <BotonSesion />
           </div>
