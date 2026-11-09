@@ -2,77 +2,120 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../services/api';
 
+// ==================== CONFIGURACIÓN ====================
+
 const VACIO = {
   titulo: '',
-  titulo_en: '',
   descripcion: '',
-  descripcion_en: '',
+  objetivo: '',
+  caracteristicas: '',
   tecnologias: '',
   url_demo: '',
+  url_repositorio: '',
 };
 
 const TIPOS_OK = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_BYTES = 2 * 1024 * 1024;
+const MAX_GALERIA = 15;
 
-// ---------- Validaciones ----------
+// ==================== VALIDACIONES ====================
 
-const validarArchivo = (f) => {
-  if (!f) return '';
+function validarArchivo(archivo) {
+  if (!archivo) return '';
 
-  if (!TIPOS_OK.includes(f.type)) {
+  if (!TIPOS_OK.includes(archivo.type)) {
     return 'Solo se permiten imágenes JPG, PNG o WEBP.';
   }
 
-  if (f.size > MAX_BYTES) {
-    return 'La imagen no puede superar los 2 MB.';
+  if (archivo.size > MAX_BYTES) {
+    return 'Cada imagen puede pesar como máximo 2 MB.';
   }
 
   return '';
-};
+}
 
-const validarForm = (v, archivo) => {
-  const e = {};
+function validarUrl(url) {
+  if (!url.trim()) return true;
 
-  const t = v.titulo.trim().length;
-  const d = v.descripcion.trim().length;
+  try {
+    const direccion = new URL(url.trim());
+    return ['http:', 'https:'].includes(direccion.protocol);
+  } catch {
+    return false;
+  }
+}
 
-  if (t < 3 || t > 100) {
-    e.titulo = 'El título debe tener entre 3 y 100 caracteres.';
+function validarForm(v, archivo, galeria, cantidadActual) {
+  const errores = {};
+
+  const titulo = v.titulo.trim().length;
+  const descripcion = v.descripcion.trim().length;
+
+  if (titulo < 3 || titulo > 100) {
+    errores.titulo = 'El título debe tener entre 3 y 100 caracteres.';
   }
 
-  if (d < 10 || d > 1000) {
-    e.descripcion = 'La descripción debe tener entre 10 y 1000 caracteres.';
+  if (descripcion < 10 || descripcion > 1000) {
+    errores.descripcion =
+      'La descripción debe tener entre 10 y 1000 caracteres.';
   }
 
-  if (v.titulo_en.trim().length > 100) {
-    e.titulo_en = 'El título en inglés no puede superar los 100 caracteres.';
+  if (v.objetivo.length > 3000) {
+    errores.objetivo = 'El objetivo no puede superar los 3000 caracteres.';
   }
 
-  if (v.descripcion_en.trim().length > 1000) {
-    e.descripcion_en = 'La descripción en inglés no puede superar los 1000 caracteres.';
+  if (v.caracteristicas.length > 5000) {
+    errores.caracteristicas =
+      'Las características no pueden superar los 5000 caracteres.';
   }
 
   if (v.tecnologias.length > 200) {
-    e.tecnologias = 'Las tecnologías no pueden superar los 200 caracteres.';
+    errores.tecnologias =
+      'Las tecnologías no pueden superar los 200 caracteres.';
   }
 
-  if (
-    v.url_demo.trim() &&
-    !/^https?:\/\/\S+$/i.test(v.url_demo.trim())
-  ) {
-    e.url_demo = 'La URL de la demo debe empezar con http:// o https://';
+  if (!validarUrl(v.url_demo)) {
+    errores.url_demo = 'Ingresá una URL válida con http:// o https://';
   }
 
-  const ea = validarArchivo(archivo);
-
-  if (ea) {
-    e.imagen = ea;
+  if (v.url_demo.length > 255) {
+    errores.url_demo = 'La URL no puede superar los 255 caracteres.';
   }
 
-  return e;
-};
+  if (!validarUrl(v.url_repositorio)) {
+    errores.url_repositorio =
+      'Ingresá una URL válida con http:// o https://';
+  }
 
-// ---------- Formulario para crear y editar ----------
+  if (v.url_repositorio.length > 255) {
+    errores.url_repositorio =
+      'La URL no puede superar los 255 caracteres.';
+  }
+
+  const errorPrincipal = validarArchivo(archivo);
+
+  if (errorPrincipal) {
+    errores.imagen = errorPrincipal;
+  }
+
+  if (cantidadActual + galeria.length > MAX_GALERIA) {
+    errores.galeria =
+      'Un proyecto puede tener como máximo 15 imágenes adicionales.';
+  }
+
+  for (const imagen of galeria) {
+    const error = validarArchivo(imagen);
+
+    if (error) {
+      errores.galeria = error;
+      break;
+    }
+  }
+
+  return errores;
+}
+
+// ==================== FORMULARIO ====================
 
 function Formulario({ proyecto, alGuardar, alCancelar }) {
   const editando = Boolean(proyecto);
@@ -81,73 +124,175 @@ function Formulario({ proyecto, alGuardar, alCancelar }) {
     editando
       ? {
           titulo: proyecto.titulo || '',
-          titulo_en: proyecto.titulo_en || '',
           descripcion: proyecto.descripcion || '',
-          descripcion_en: proyecto.descripcion_en || '',
+          objetivo: proyecto.objetivo || '',
+          caracteristicas: proyecto.caracteristicas || '',
           tecnologias: proyecto.tecnologias || '',
           url_demo: proyecto.url_demo || '',
+          url_repositorio: proyecto.url_repositorio || '',
         }
-      : VACIO
+      : { ...VACIO }
   );
 
   const [archivo, setArchivo] = useState(null);
   const [vista, setVista] = useState(proyecto?.imagen || '');
   const [quitar, setQuitar] = useState(false);
+
+  const [galeria, setGaleria] = useState([]);
+  const [imagenesEliminar, setImagenesEliminar] = useState([]);
+
   const [errores, setErrores] = useState({});
   const [errorServidor, setErrorServidor] = useState('');
   const [enviando, setEnviando] = useState(false);
 
-  useEffect(() => {
-    return () => {
-      if (vista.startsWith('blob:')) {
-        URL.revokeObjectURL(vista);
-      }
-    };
-  }, [vista]);
+  const imagenesActuales = Array.isArray(proyecto?.imagenes)
+    ? proyecto.imagenes
+    : [];
 
-  const cambiar = (e) => {
+  const imagenesConservadas = imagenesActuales.filter(
+    (item) => !imagenesEliminar.includes(item.id)
+  );
+
+  // Vista previa de la imagen principal
+  useEffect(() => {
+    if (!archivo) {
+      setVista(quitar ? '' : proyecto?.imagen || '');
+      return;
+    }
+
+    const url = URL.createObjectURL(archivo);
+    setVista(url);
+
+    return () => URL.revokeObjectURL(url);
+  }, [archivo, quitar, proyecto]);
+
+  // Vista previa de las imágenes nuevas
+  const [vistasGaleria, setVistasGaleria] = useState([]);
+
+  useEffect(() => {
+    const urls = galeria.map((imagen) => URL.createObjectURL(imagen));
+    setVistasGaleria(urls);
+
+    return () => {
+      urls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [galeria]);
+
+  function cambiar(e) {
     const { name, value } = e.target;
 
-    setV((x) => ({
-      ...x,
+    setV((anterior) => ({
+      ...anterior,
       [name]: value,
     }));
 
-    if (errores[name]) {
-      setErrores((er) => ({
-        ...er,
-        [name]: '',
+    setErrores((anterior) => ({
+      ...anterior,
+      [name]: '',
+    }));
+  }
+
+  function elegirImagen(e) {
+    const seleccionado = e.target.files?.[0] || null;
+    const error = validarArchivo(seleccionado);
+
+    if (error) {
+      setErrores((anterior) => ({
+        ...anterior,
+        imagen: error,
       }));
+
+      e.target.value = '';
+      return;
     }
-  };
 
-  const elegirImagen = (e) => {
-    const f = e.target.files[0] || null;
-    const msg = validarArchivo(f);
-
-    setArchivo(msg ? null : f);
+    setArchivo(seleccionado);
     setQuitar(false);
 
-    setErrores((er) => ({
-      ...er,
-      imagen: msg,
+    setErrores((anterior) => ({
+      ...anterior,
+      imagen: '',
+    }));
+  }
+
+  function elegirGaleria(e) {
+    const seleccionadas = Array.from(e.target.files || []);
+
+    if (!seleccionadas.length) return;
+
+    const total =
+      imagenesConservadas.length +
+      galeria.length +
+      seleccionadas.length;
+
+    if (total > MAX_GALERIA) {
+      setErrores((anterior) => ({
+        ...anterior,
+        galeria:
+          'Solo podés tener hasta 15 imágenes adicionales por proyecto.',
+      }));
+
+      e.target.value = '';
+      return;
+    }
+
+    for (const imagen of seleccionadas) {
+      const error = validarArchivo(imagen);
+
+      if (error) {
+        setErrores((anterior) => ({
+          ...anterior,
+          galeria: error,
+        }));
+
+        e.target.value = '';
+        return;
+      }
+    }
+
+    setGaleria((anterior) => [
+      ...anterior,
+      ...seleccionadas,
+    ]);
+
+    setErrores((anterior) => ({
+      ...anterior,
+      galeria: '',
     }));
 
-    setVista(
-      f && !msg
-        ? URL.createObjectURL(f)
-        : proyecto?.imagen || ''
+    e.target.value = '';
+  }
+
+  function quitarNuevaImagen(indice) {
+    setGaleria((anterior) =>
+      anterior.filter((_, i) => i !== indice)
+    );
+  }
+
+  function marcarImagenEliminar(id) {
+    setImagenesEliminar((anterior) =>
+      anterior.includes(id)
+        ? anterior.filter((item) => item !== id)
+        : [...anterior, id]
     );
 
-    if (msg) {
-      e.target.value = '';
-    }
-  };
+    setErrores((anterior) => ({
+      ...anterior,
+      galeria: '',
+    }));
+  }
 
-  const enviar = async (e) => {
+  async function enviar(e) {
     e.preventDefault();
 
-    const errs = validarForm(v, archivo);
+    if (enviando) return;
+
+    const errs = validarForm(
+      v,
+      archivo,
+      galeria,
+      imagenesConservadas.length
+    );
 
     setErrores(errs);
 
@@ -158,11 +303,16 @@ function Formulario({ proyecto, alGuardar, alCancelar }) {
     const fd = new FormData();
 
     fd.append('titulo', v.titulo.trim());
-    fd.append('titulo_en', v.titulo_en.trim());
     fd.append('descripcion', v.descripcion.trim());
-    fd.append('descripcion_en', v.descripcion_en.trim());
+    fd.append('objetivo', v.objetivo.trim());
+    fd.append('caracteristicas', v.caracteristicas.trim());
     fd.append('tecnologias', v.tecnologias.trim());
     fd.append('url_demo', v.url_demo.trim());
+    fd.append('url_repositorio', v.url_repositorio.trim());
+
+    // Campos existentes para compatibilidad
+    fd.append('titulo_en', '');
+    fd.append('descripcion_en', '');
 
     if (archivo) {
       fd.append('imagen', archivo);
@@ -170,6 +320,17 @@ function Formulario({ proyecto, alGuardar, alCancelar }) {
 
     if (quitar && !archivo) {
       fd.append('quitarImagen', 'true');
+    }
+
+    for (const imagen of galeria) {
+      fd.append('galeria', imagen);
+    }
+
+    if (imagenesEliminar.length > 0) {
+      fd.append(
+        'imagenesEliminar',
+        JSON.stringify(imagenesEliminar)
+      );
     }
 
     setEnviando(true);
@@ -188,127 +349,177 @@ function Formulario({ proyecto, alGuardar, alCancelar }) {
 
       alGuardar(
         editando
-          ? 'Proyecto actualizado.'
-          : 'Proyecto creado.'
+          ? 'Proyecto actualizado correctamente.'
+          : 'Proyecto creado correctamente.'
       );
-    } catch (err) {
-      setErrorServidor(err.message);
+    } catch (error) {
+      setErrorServidor(
+        error.message || 'No se pudo guardar el proyecto.'
+      );
     } finally {
       setEnviando(false);
     }
-  };
+  }
 
-  const clase = (c) => `campo ${errores[c] ? 'mal' : ''}`;
+  const clase = (campo) =>
+    `campo ${errores[campo] ? 'mal' : ''}`;
 
   return (
-    <form onSubmit={enviar} noValidate className="tarjeta space-y-4">
+    <form
+      onSubmit={enviar}
+      noValidate
+      className="tarjeta space-y-4"
+    >
       <h3 className="text-xl font-light">
         {editando ? 'Editar proyecto' : 'Nuevo proyecto'}
       </h3>
 
-      <h4 className="text-sm font-semibold text-[#60A5FA]">
-        Contenido en español
-      </h4>
-
+      {/* TÍTULO */}
       <div>
+        <label className="text-sm opacity-80">
+          Título del proyecto
+        </label>
+
         <input
           className={clase('titulo')}
           name="titulo"
-          placeholder="Título en español"
+          placeholder="Nombre del proyecto"
           maxLength={100}
           value={v.titulo}
           onChange={cambiar}
-          aria-invalid={!!errores.titulo}
         />
+
         <p className="error">{errores.titulo}</p>
       </div>
 
+      {/* DESCRIPCIÓN */}
       <div>
+        <label className="text-sm opacity-80">
+          Descripción
+        </label>
+
         <textarea
           className={clase('descripcion')}
           name="descripcion"
-          rows="4"
-          placeholder="Descripción del proyecto en español"
+          rows={4}
+          placeholder="Descripción general del proyecto"
           maxLength={1000}
           value={v.descripcion}
           onChange={cambiar}
-          aria-invalid={!!errores.descripcion}
         />
 
         <p className="text-xs opacity-60 text-right mt-1">
           {v.descripcion.length}/1000
         </p>
+
         <p className="error">{errores.descripcion}</p>
       </div>
 
-      <div className="border-t border-gray-500/20 pt-4">
-        <h4 className="text-sm font-semibold text-[#60A5FA] mb-3">
-          English content (optional)
-        </h4>
+      {/* OBJETIVO */}
+      <div>
+        <label className="text-sm opacity-80">
+          Objetivo del proyecto
+        </label>
 
-        <div className="mb-4">
-          <input
-            className={clase('titulo_en')}
-            name="titulo_en"
-            placeholder="Project title in English"
-            maxLength={100}
-            value={v.titulo_en}
-            onChange={cambiar}
-            aria-invalid={!!errores.titulo_en}
-          />
-          <p className="error">{errores.titulo_en}</p>
-        </div>
+        <textarea
+          className={clase('objetivo')}
+          name="objetivo"
+          rows={3}
+          placeholder="¿Qué busca resolver este proyecto?"
+          maxLength={3000}
+          value={v.objetivo}
+          onChange={cambiar}
+        />
 
-        <div>
-          <textarea
-            className={clase('descripcion_en')}
-            name="descripcion_en"
-            rows="4"
-            placeholder="Project description in English"
-            maxLength={1000}
-            value={v.descripcion_en}
-            onChange={cambiar}
-            aria-invalid={!!errores.descripcion_en}
-          />
-
-          <p className="text-xs opacity-60 text-right mt-1">
-            {v.descripcion_en.length}/1000
-          </p>
-          <p className="error">{errores.descripcion_en}</p>
-        </div>
+        <p className="error">{errores.objetivo}</p>
       </div>
 
+      {/* CARACTERÍSTICAS */}
       <div>
+        <label className="text-sm opacity-80">
+          Características principales
+        </label>
+
+        <textarea
+          className={clase('caracteristicas')}
+          name="caracteristicas"
+          rows={5}
+          placeholder={
+            'Ejemplo:\nInicio de sesión\nPanel de administrador\nGestión de usuarios'
+          }
+          maxLength={5000}
+          value={v.caracteristicas}
+          onChange={cambiar}
+        />
+
+        <p className="text-xs opacity-60 mt-1">
+          Escribí una característica por línea.
+        </p>
+
+        <p className="error">{errores.caracteristicas}</p>
+      </div>
+
+      {/* TECNOLOGÍAS */}
+      <div>
+        <label className="text-sm opacity-80">
+          Tecnologías utilizadas
+        </label>
+
         <input
           className={clase('tecnologias')}
           name="tecnologias"
-          placeholder="Tecnologías separadas por coma (React, Node.js, MySQL)"
+          placeholder="React, Node.js, MySQL"
           maxLength={200}
           value={v.tecnologias}
           onChange={cambiar}
         />
+
         <p className="error">{errores.tecnologias}</p>
       </div>
 
+      {/* DEMO */}
       <div>
+        <label className="text-sm opacity-80">
+          Enlace a la demo
+        </label>
+
         <input
           className={clase('url_demo')}
           name="url_demo"
-          placeholder="Link de la demo (opcional, https://…)"
+          placeholder="https://..."
           maxLength={255}
           value={v.url_demo}
           onChange={cambiar}
-          aria-invalid={!!errores.url_demo}
         />
+
         <p className="error">{errores.url_demo}</p>
       </div>
 
+      {/* GITHUB */}
+      <div>
+        <label className="text-sm opacity-80">
+          Enlace al repositorio de GitHub
+        </label>
+
+        <input
+          className={clase('url_repositorio')}
+          name="url_repositorio"
+          placeholder="https://github.com/usuario/proyecto"
+          maxLength={255}
+          value={v.url_repositorio}
+          onChange={cambiar}
+        />
+
+        <p className="error">{errores.url_repositorio}</p>
+      </div>
+
+      {/* IMAGEN PRINCIPAL */}
       <div>
         <label
           className="text-sm opacity-80"
           htmlFor="imagen-proyecto"
         >
-          Imagen (JPG, PNG o WEBP, máximo 2 MB)
+          Imagen principal (JPG, PNG o WEBP, máximo 2 MB)
         </label>
 
         <input
@@ -324,7 +535,7 @@ function Formulario({ proyecto, alGuardar, alCancelar }) {
         {vista && !quitar && (
           <img
             src={vista}
-            alt="Vista previa de la imagen del proyecto"
+            alt="Vista previa de la imagen principal"
             className="mt-3 h-32 rounded-xl object-cover"
           />
         )}
@@ -336,22 +547,124 @@ function Formulario({ proyecto, alGuardar, alCancelar }) {
               checked={quitar}
               onChange={(e) => setQuitar(e.target.checked)}
             />
-            Quitar la imagen actual
+            Quitar la imagen principal actual
           </label>
         )}
       </div>
 
+      {/* GALERÍA */}
+      <div className="border-t border-white/10 pt-5">
+        <h4 className="text-lg font-light mb-2">
+          Galería de imágenes
+        </h4>
+
+        <p className="text-sm opacity-70 mb-3">
+          Podés agregar hasta 15 imágenes adicionales.
+          Cada una debe pesar como máximo 2 MB.
+        </p>
+
+        <input
+          type="file"
+          multiple
+          accept="image/jpeg,image/png,image/webp"
+          className="block text-sm w-full"
+          onChange={elegirGaleria}
+        />
+
+        <p className="error">{errores.galeria}</p>
+
+        <p className="text-xs opacity-60 mt-2">
+          {imagenesConservadas.length + galeria.length}
+          /{MAX_GALERIA} imágenes adicionales
+        </p>
+
+        {/* Imágenes que ya están guardadas */}
+        {imagenesActuales.length > 0 && (
+          <div className="mt-5">
+            <p className="text-sm mb-3">
+              Imágenes guardadas
+            </p>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {imagenesActuales.map((item) => {
+                const marcada = imagenesEliminar.includes(item.id);
+
+                return (
+                  <div
+                    key={item.id}
+                    className="rounded-xl border border-white/10 p-2"
+                  >
+                    <img
+                      src={item.imagen}
+                      alt="Imagen guardada del proyecto"
+                      className="w-full h-28 object-cover rounded-lg"
+                    />
+
+                    <label className="flex items-center gap-2 mt-2 text-xs">
+                      <input
+                        type="checkbox"
+                        checked={marcada}
+                        onChange={() => marcarImagenEliminar(item.id)}
+                      />
+
+                      {marcada
+                        ? 'Se eliminará al guardar'
+                        : 'Eliminar imagen'}
+                    </label>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Imágenes seleccionadas para subir */}
+        {vistasGaleria.length > 0 && (
+          <div className="mt-5">
+            <p className="text-sm mb-3">
+              Imágenes nuevas
+            </p>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {vistasGaleria.map((url, indice) => (
+                <div
+                  key={url}
+                  className="rounded-xl border border-white/10 p-2"
+                >
+                  <img
+                    src={url}
+                    alt={`Nueva imagen ${indice + 1}`}
+                    className="w-full h-28 object-cover rounded-lg"
+                  />
+
+                  <button
+                    type="button"
+                    className="text-xs text-red-400 mt-2 hover:underline"
+                    onClick={() => quitarNuevaImagen(indice)}
+                  >
+                    Quitar
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ERROR DEL SERVIDOR */}
       {errorServidor && (
         <p className="error" role="alert">
           {errorServidor}
         </p>
       )}
 
+      {/* BOTONES */}
       <div className="flex gap-3 justify-end flex-wrap">
         <button
           type="button"
           className="btn btn-borde text-sm !py-2 !px-6"
           onClick={alCancelar}
+          disabled={enviando}
         >
           Cancelar
         </button>
@@ -372,7 +685,7 @@ function Formulario({ proyecto, alGuardar, alCancelar }) {
   );
 }
 
-// ---------- Pantalla principal ----------
+// ==================== PANTALLA PRINCIPAL ====================
 
 export default function Proyectos() {
   const [proyectos, setProyectos] = useState([]);
@@ -381,47 +694,59 @@ export default function Proyectos() {
   const [aviso, setAviso] = useState('');
   const [modo, setModo] = useState(null);
   const [confirmar, setConfirmar] = useState(null);
+  const [eliminando, setEliminando] = useState(false);
 
   const cargar = useCallback(() => {
     setCargando(true);
     setError('');
 
     api('/admin/proyectos')
-      .then((d) => setProyectos(d.proyectos))
-      .catch((e) => setError(e.message))
-      .finally(() => setCargando(false));
+      .then((datos) => {
+        setProyectos(datos.proyectos || []);
+      })
+      .catch((err) => {
+        setError(err.message);
+      })
+      .finally(() => {
+        setCargando(false);
+      });
   }, []);
 
   useEffect(() => {
     cargar();
   }, [cargar]);
 
-  const alGuardar = (mensaje) => {
+  function alGuardar(mensaje) {
     setModo(null);
     setAviso(mensaje);
     cargar();
-  };
+  }
 
-  const eliminar = async (p) => {
+  async function eliminar(proyecto) {
+    if (eliminando) return;
+
+    setEliminando(true);
     setError('');
     setAviso('');
 
     try {
-      await api(`/admin/proyectos/${p.id}`, {
+      await api(`/admin/proyectos/${proyecto.id}`, {
         metodo: 'DELETE',
       });
 
       setConfirmar(null);
-      setAviso(`El proyecto "${p.titulo}" fue eliminado.`);
-
+      setAviso(`El proyecto "${proyecto.titulo}" fue eliminado.`);
       cargar();
-    } catch (e) {
-      setError(e.message);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setEliminando(false);
     }
-  };
+  }
 
   return (
     <div>
+      {/* ENCABEZADO */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <h2 className="text-2xl font-light">
           Proyectos y demos
@@ -440,8 +765,12 @@ export default function Proyectos() {
         )}
       </div>
 
+      {/* MENSAJES */}
       {aviso && (
-        <p className="mt-5 text-sm text-[#60A5FA]" role="status">
+        <p
+          className="mt-5 text-sm text-[#60A5FA]"
+          role="status"
+        >
           {aviso}
         </p>
       )}
@@ -452,6 +781,7 @@ export default function Proyectos() {
         </p>
       )}
 
+      {/* FORMULARIO */}
       {modo && (
         <div className="mt-6">
           <Formulario
@@ -463,19 +793,27 @@ export default function Proyectos() {
         </div>
       )}
 
+      {/* LISTA DE PROYECTOS */}
       <div className="grid sm:grid-cols-2 gap-5 mt-6">
         {cargando && proyectos.length === 0 && (
-          <p className="opacity-70">Cargando proyectos…</p>
+          <p className="opacity-70">
+            Cargando proyectos…
+          </p>
         )}
 
         {!cargando && !error && proyectos.length === 0 && (
           <p className="opacity-70">
-            Todavía no hay proyectos. Creá el primero con "Nuevo proyecto".
+            Todavía no hay proyectos. Creá el primero con
+            "Nuevo proyecto".
           </p>
         )}
 
         {proyectos.map((p) => (
-          <article key={p.id} className="tarjeta flex flex-col">
+          <article
+            key={p.id}
+            className="tarjeta flex flex-col"
+          >
+            {/* IMAGEN PRINCIPAL */}
             {p.imagen ? (
               <img
                 src={p.imagen}
@@ -485,30 +823,60 @@ export default function Proyectos() {
               />
             ) : (
               <div className="h-32 rounded-xl mb-4 grid place-items-center text-xs opacity-60 bg-gray-500/10">
-                Sin imagen
+                Sin imagen principal
               </div>
             )}
 
+            {/* TÍTULO */}
             <h3 className="font-light text-lg break-words">
               {p.titulo}
             </h3>
 
+            {/* DESCRIPCIÓN */}
             <p className="text-sm opacity-70 mt-2 line-clamp-3 break-words">
               {p.descripcion}
             </p>
 
-            {p.titulo_en && (
-              <p className="text-xs opacity-60 mt-2">
-                Inglés: {p.titulo_en}
-              </p>
+            {/* OBJETIVO */}
+            {p.objetivo && (
+              <div className="mt-3">
+                <p className="text-xs text-[#60A5FA]">
+                  Objetivo
+                </p>
+
+                <p className="text-sm opacity-70 line-clamp-2 break-words">
+                  {p.objetivo}
+                </p>
+              </div>
             )}
 
+            {/* CARACTERÍSTICAS */}
+            {p.caracteristicas && (
+              <div className="mt-3">
+                <p className="text-xs text-[#60A5FA]">
+                  Características
+                </p>
+
+                <p className="text-sm opacity-70 line-clamp-3 whitespace-pre-line break-words">
+                  {p.caracteristicas}
+                </p>
+              </div>
+            )}
+
+            {/* TECNOLOGÍAS */}
             {p.tecnologias && (
               <p className="text-xs text-[#60A5FA] mt-3 break-words">
                 {p.tecnologias}
               </p>
             )}
 
+            {/* CANTIDAD DE IMÁGENES */}
+            <p className="text-xs opacity-60 mt-3">
+              Galería: {Array.isArray(p.imagenes) ? p.imagenes.length : 0}
+              {' '}imágenes adicionales
+            </p>
+
+            {/* ENLACES */}
             {p.url_demo && (
               <a
                 href={p.url_demo}
@@ -516,10 +884,22 @@ export default function Proyectos() {
                 rel="noopener noreferrer"
                 className="text-xs mt-2 underline break-all"
               >
-                {p.url_demo}
+                Ver demo
               </a>
             )}
 
+            {p.url_repositorio && (
+              <a
+                href={p.url_repositorio}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs mt-2 underline break-all"
+              >
+                Ver repositorio de GitHub
+              </a>
+            )}
+
+            {/* EDITAR / ELIMINAR */}
             <div className="mt-auto pt-4 flex items-center gap-4 flex-wrap">
               {confirmar === p.id ? (
                 <>
@@ -530,13 +910,15 @@ export default function Proyectos() {
                   <button
                     className="text-sm text-red-400 hover:underline"
                     onClick={() => eliminar(p)}
+                    disabled={eliminando}
                   >
-                    Sí, eliminar
+                    {eliminando ? 'Eliminando…' : 'Sí, eliminar'}
                   </button>
 
                   <button
                     className="text-sm opacity-70 hover:underline"
                     onClick={() => setConfirmar(null)}
+                    disabled={eliminando}
                   >
                     Cancelar
                   </button>
@@ -548,6 +930,7 @@ export default function Proyectos() {
                     onClick={() => {
                       setModo(p);
                       setAviso('');
+
                       window.scrollTo({
                         top: 0,
                         behavior: 'smooth',

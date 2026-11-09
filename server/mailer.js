@@ -1,11 +1,13 @@
 
-require('dotenv').config();
+const path = require('path');
+
+require('dotenv').config({
+  path: path.join(__dirname, '.env')
+});
 
 const nodemailer = require('nodemailer');
 
-// --------------------------------------------------
-// CONFIGURACIÓN
-// --------------------------------------------------
+// ==================== CONFIGURACIÓN ====================
 
 const MAIL_USER = (process.env.MAIL_USER || '').trim();
 const MAIL_PASS = (process.env.MAIL_PASS || '').trim();
@@ -17,74 +19,76 @@ const transporte = configurado
       service: 'gmail',
       auth: {
         user: MAIL_USER,
-        pass: MAIL_PASS,
+        pass: MAIL_PASS
       },
       connectionTimeout: 10000,
       greetingTimeout: 10000,
-      socketTimeout: 20000,
+      socketTimeout: 20000
     })
   : null;
 
-// --------------------------------------------------
-// SEGURIDAD Y FORMATO
-// --------------------------------------------------
+// ==================== SEGURIDAD ====================
 
-// Escapa los datos para evitar que el contenido del visitante
-// pueda insertar HTML en los correos.
+// Evitar que el contenido ingresado por un visitante
+// se interprete como HTML dentro de los correos.
+function esc(texto) {
+  return String(texto ?? '').replace(
+    /[&<>"']/g,
+    (caracter) =>
+      ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      })[caracter]
+  );
+}
 
-const esc = (texto) =>
-  String(texto ?? '').replace(/[&<>"']/g, (caracter) => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
-  })[caracter]);
+// Validar el formato del correo electrónico.
+function emailValido(email) {
+  return (
+    typeof email === 'string' &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
+  );
+}
 
-// Comprueba que el destinatario tenga formato de email válido.
+// ==================== DISEÑO DE CORREOS ====================
 
-const emailValido = (email) =>
-  typeof email === 'string' &&
-  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+function marco(titulo, cuerpo) {
+  return `
+    <div style="font-family:Arial,Helvetica,sans-serif;background:#F0F6FF;padding:24px">
+      <div style="max-width:560px;margin:auto;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #DBEAFE">
 
-// --------------------------------------------------
-// DISEÑO DE LOS CORREOS ORVAN
-// --------------------------------------------------
+        <div style="background:#0A1736;color:#ffffff;padding:20px 24px;letter-spacing:.3em;font-size:18px">
+          ORVAN
+        </div>
 
-const marco = (titulo, cuerpo) => `
-  <div style="font-family:Arial,Helvetica,sans-serif;background:#F0F6FF;padding:24px">
-    <div style="max-width:560px;margin:auto;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #DBEAFE">
+        <div style="padding:24px;color:#0F172A;font-size:15px;line-height:1.6">
+          <h2 style="margin:0 0 12px;font-size:18px;color:#1D4ED8">
+            ${titulo}
+          </h2>
 
-      <div style="background:#0A1736;color:#ffffff;padding:20px 24px;letter-spacing:.3em;font-size:18px">
-        ORVAN
+          ${cuerpo}
+        </div>
+
+        <div style="padding:14px 24px;background:#F0F6FF;color:#334155;font-size:12px">
+          ORVAN · Desarrollo web fullstack
+        </div>
+
       </div>
-
-      <div style="padding:24px;color:#0F172A;font-size:15px;line-height:1.6">
-        <h2 style="margin:0 0 12px;font-size:18px;color:#1D4ED8">
-          ${titulo}
-        </h2>
-
-        ${cuerpo}
-      </div>
-
-      <div style="padding:14px 24px;background:#F0F6FF;color:#334155;font-size:12px">
-        ORVAN · Desarrollo web fullstack
-      </div>
-
     </div>
-  </div>
-`;
+  `;
+}
 
-// --------------------------------------------------
-// ENVÍO GENERAL DE EMAILS
-// --------------------------------------------------
+// ==================== ENVÍO GENERAL ====================
 
 async function enviar({
   para,
   asunto,
   texto,
   html,
-  responderA,
+  responderA
 }) {
   if (!configurado || !transporte) {
     console.warn(
@@ -96,13 +100,11 @@ async function enviar({
 
   if (!emailValido(para)) {
     console.error('[MAIL] Destinatario inválido.');
-
     return false;
   }
 
   if (responderA && !emailValido(responderA)) {
-    console.error('[MAIL] Dirección replyTo inválida.');
-
+    console.error('[MAIL] Dirección de respuesta inválida.');
     return false;
   }
 
@@ -113,15 +115,16 @@ async function enviar({
       subject: asunto,
       text: texto,
       html,
-      ...(responderA ? { replyTo: responderA.trim() } : {}),
+      ...(responderA
+        ? { replyTo: responderA.trim() }
+        : {})
     });
 
     console.log(
-      `[MAIL] Correo enviado correctamente: ${resultado.messageId}`
+      `[MAIL] Correo enviado: ${resultado.messageId}`
     );
 
     return true;
-
   } catch (error) {
     console.error(
       '[MAIL] Error al enviar el correo:',
@@ -132,14 +135,11 @@ async function enviar({
   }
 }
 
-// --------------------------------------------------
-// AVISO AL ESTUDIO: NUEVA CONSULTA
-// --------------------------------------------------
+// ==================== NUEVA CONSULTA ====================
 
 function avisarNuevaConsulta(consulta) {
   return enviar({
     para: MAIL_USER,
-
     responderA: consulta.email,
 
     asunto: `[ORVAN] ${consulta.tipo}: ${consulta.nombre}`,
@@ -157,7 +157,6 @@ ${consulta.mensaje}
 
     html: marco(
       'Nueva consulta desde el sitio',
-
       `
         <p>
           <b>Nombre:</b> ${esc(consulta.nombre)}<br>
@@ -173,13 +172,11 @@ ${consulta.mensaje}
           Podés responder directamente a este correo para contactar al cliente.
         </p>
       `
-    ),
+    )
   });
 }
 
-// --------------------------------------------------
-// CONFIRMACIÓN AL CLIENTE
-// --------------------------------------------------
+// ==================== CONFIRMACIÓN AL CLIENTE ====================
 
 function confirmarAlCliente(consulta) {
   return enviar({
@@ -199,11 +196,8 @@ Equipo ORVAN
 
     html: marco(
       `Hola ${esc(consulta.nombre)}, recibimos tu consulta`,
-
       `
-        <p>
-          Gracias por comunicarte con ORVAN.
-        </p>
+        <p>Gracias por comunicarte con ORVAN.</p>
 
         <p>
           Recibimos tu consulta sobre
@@ -211,7 +205,8 @@ Equipo ORVAN
         </p>
 
         <p>
-          Nuestro equipo la revisará y te responderá por este medio a la brevedad.
+          Nuestro equipo la revisará y te responderá
+          por este medio a la brevedad.
         </p>
 
         <p style="background:#F0F6FF;border-radius:10px;padding:14px;white-space:pre-wrap;color:#334155">
@@ -220,18 +215,15 @@ Equipo ORVAN
 
         <p>Equipo ORVAN</p>
       `
-    ),
+    )
   });
 }
 
-// --------------------------------------------------
-// RESPUESTA DEL ADMINISTRADOR
-// --------------------------------------------------
+// ==================== RESPUESTA A CONSULTA ====================
 
 function responderConsulta(consulta, respuesta) {
   return enviar({
     para: consulta.email,
-
     responderA: MAIL_USER,
 
     asunto: `Re: ${consulta.tipo} · ORVAN`,
@@ -251,7 +243,6 @@ ${consulta.mensaje}
 
     html: marco(
       `Hola ${esc(consulta.nombre)}`,
-
       `
         <p style="white-space:pre-wrap">
           ${esc(respuesta)}
@@ -269,13 +260,11 @@ ${consulta.mensaje}
           ${esc(consulta.mensaje)}
         </p>
       `
-    ),
+    )
   });
 }
 
-// --------------------------------------------------
-// VERIFICAR CONEXIÓN CON GMAIL
-// --------------------------------------------------
+// ==================== VERIFICAR GMAIL ====================
 
 async function verificarCorreo() {
   if (!configurado || !transporte) {
@@ -289,10 +278,11 @@ async function verificarCorreo() {
   try {
     await transporte.verify();
 
-    console.log('[MAIL] Conexión con Gmail verificada correctamente.');
+    console.log(
+      '[MAIL] Conexión con Gmail verificada correctamente.'
+    );
 
     return true;
-
   } catch (error) {
     console.error(
       '[MAIL] No se pudo conectar con Gmail:',
@@ -303,9 +293,7 @@ async function verificarCorreo() {
   }
 }
 
-// --------------------------------------------------
-// EXPORTACIONES
-// --------------------------------------------------
+// ==================== EXPORTACIONES ====================
 
 module.exports = {
   enviar,
@@ -314,5 +302,5 @@ module.exports = {
   avisarNuevaConsulta,
   confirmarAlCliente,
   responderConsulta,
-  verificarCorreo,
+  verificarCorreo
 };

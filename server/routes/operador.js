@@ -95,7 +95,7 @@ router.post(
       if (!errores.isEmpty()) {
         return res.status(400).json({
           error: errores.array()[0].msg,
-        });
+        })
       }
 
       const [filas] = await db.query(

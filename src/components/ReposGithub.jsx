@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 // ↓↓↓ Poné acá el usuario u organización de GitHub del equipo (por ejemplo 'orvan-studio').
 // Si queda vacío, esta sección no se muestra.
-const GITHUB_USUARIO = '';
+const GITHUB_USUARIO = 'nattlb';
 
 const esLinkDeGithub = (u) => typeof u === 'string' && u.startsWith('https://github.com/');
 

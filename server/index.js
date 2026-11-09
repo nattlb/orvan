@@ -1,5 +1,6 @@
-
-require('dotenv').config();
+require('dotenv').config({
+  path: require('path').join(__dirname, '.env')
+});
 
 const express = require('express');
 const helmet = require('helmet');
@@ -23,12 +24,14 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 16) {
 
 const app = express();
 const PUERTO = process.env.PORT || 4000;
+console.log('[CONFIG] TRUST_PROXY:', process.env.TRUST_PROXY);
 
-// Configurar trust proxy solamente si el despliegue utiliza
-// un proxy inverso confiable. En local queda desactivado.
+// Configuración de proxy confiable.
 if (process.env.TRUST_PROXY === 'true') {
-  app.set('trust proxy', 1);
+  app.set('trust proxy', 'loopback');
 }
+
+console.log('[CONFIG] Express trust proxy:', app.get('trust proxy'));
 
 // --------------------------------------------------
 // SEGURIDAD Y MIDDLEWARES

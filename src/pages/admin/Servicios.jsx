@@ -4,9 +4,7 @@ import { api } from '../../services/api';
 
 const VACIO = {
   titulo: '',
-  titulo_en: '',
   descripcion: '',
-  descripcion_en: '',
 };
 
 const validarForm = (v) => {
@@ -23,14 +21,6 @@ const validarForm = (v) => {
     e.descripcion = 'La descripción debe tener entre 10 y 500 caracteres.';
   }
 
-  if (v.titulo_en.trim().length > 100) {
-    e.titulo_en = 'El título en inglés no puede superar los 100 caracteres.';
-  }
-
-  if (v.descripcion_en.trim().length > 500) {
-    e.descripcion_en = 'La descripción en inglés no puede superar los 500 caracteres.';
-  }
-
   return e;
 };
 
@@ -43,9 +33,7 @@ function Formulario({ servicio, alGuardar, alCancelar }) {
     editando
       ? {
           titulo: servicio.titulo || '',
-          titulo_en: servicio.titulo_en || '',
           descripcion: servicio.descripcion || '',
-          descripcion_en: servicio.descripcion_en || '',
         }
       : VACIO
   );
@@ -90,9 +78,7 @@ function Formulario({ servicio, alGuardar, alCancelar }) {
           metodo: editando ? 'PUT' : 'POST',
           cuerpo: {
             titulo: v.titulo.trim(),
-            titulo_en: v.titulo_en.trim(),
             descripcion: v.descripcion.trim(),
-            descripcion_en: v.descripcion_en.trim(),
           },
         }
       );
@@ -117,15 +103,11 @@ function Formulario({ servicio, alGuardar, alCancelar }) {
         {editando ? 'Editar servicio' : 'Nuevo servicio'}
       </h3>
 
-      <h4 className="text-sm font-semibold text-[#60A5FA]">
-        Contenido en español
-      </h4>
-
       <div>
         <input
           className={clase('titulo')}
           name="titulo"
-          placeholder="Título del servicio en español"
+          placeholder="Título del servicio"
           maxLength={100}
           value={v.titulo}
           onChange={cambiar}
@@ -150,43 +132,6 @@ function Formulario({ servicio, alGuardar, alCancelar }) {
           {v.descripcion.length}/500
         </p>
         <p className="error">{errores.descripcion}</p>
-      </div>
-
-      <div className="border-t border-gray-500/20 pt-4">
-        <h4 className="text-sm font-semibold text-[#60A5FA] mb-3">
-          English content (optional)
-        </h4>
-
-        <div className="mb-4">
-          <input
-            className={clase('titulo_en')}
-            name="titulo_en"
-            placeholder="Service title in English"
-            maxLength={100}
-            value={v.titulo_en}
-            onChange={cambiar}
-            aria-invalid={!!errores.titulo_en}
-          />
-          <p className="error">{errores.titulo_en}</p>
-        </div>
-
-        <div>
-          <textarea
-            className={clase('descripcion_en')}
-            name="descripcion_en"
-            rows="3"
-            placeholder="Service description in English"
-            maxLength={500}
-            value={v.descripcion_en}
-            onChange={cambiar}
-            aria-invalid={!!errores.descripcion_en}
-          />
-
-          <p className="text-xs opacity-60 text-right mt-1">
-            {v.descripcion_en.length}/500
-          </p>
-          <p className="error">{errores.descripcion_en}</p>
-        </div>
       </div>
 
       {errorServidor && (
@@ -331,12 +276,6 @@ export default function Servicios() {
             <p className="text-sm opacity-70 mt-2 break-words">
               {s.descripcion}
             </p>
-
-            {s.titulo_en && (
-              <p className="text-xs opacity-60 mt-3">
-                Inglés: {s.titulo_en}
-              </p>
-            )}
 
             <div className="mt-4 flex items-center gap-4 flex-wrap">
               {confirmar === s.id ? (

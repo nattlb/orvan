@@ -43,25 +43,11 @@ const reglas = [
     .isLength({ min: 3, max: 100 })
     .withMessage('La especialidad debe tener entre 3 y 100 caracteres.'),
 
-  body('especialidad_en')
-    .optional({ checkFalsy: true })
-    .isString()
-    .trim()
-    .isLength({ max: 100 })
-    .withMessage('La especialidad en inglés no puede superar los 100 caracteres.'),
-
   body('descripcion')
     .isString()
     .trim()
     .isLength({ min: 10, max: 1000 })
     .withMessage('La descripción debe tener entre 10 y 1000 caracteres.'),
-
-  body('descripcion_en')
-    .optional({ checkFalsy: true })
-    .isString()
-    .trim()
-    .isLength({ max: 1000 })
-    .withMessage('La descripción en inglés no puede superar los 1000 caracteres.'),
 
   body('orden')
     .isInt({ min: 0, max: 1000 })
@@ -89,9 +75,7 @@ router.get('/', async (req, res, next) => {
         id,
         nombre,
         especialidad,
-        especialidad_en,
         descripcion,
-        descripcion_en,
         imagen,
         orden,
         activo
@@ -126,13 +110,11 @@ router.post('/', subirImagen, reglas, async (req, res, next) => {
          orden,
          activo
        )
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, NULL, ?, NULL, ?, ?, ?)`,
       [
         req.body.nombre,
         req.body.especialidad,
-        req.body.especialidad_en || null,
         req.body.descripcion,
-        req.body.descripcion_en || null,
         imagen,
         req.body.orden,
         req.body.activo === undefined
@@ -167,7 +149,7 @@ router.put('/:id', subirImagen, [idValido, ...reglas], async (req, res, next) =>
     if (!validar(req, res)) return;
 
     const [filas] = await db.query(
-      'SELECT imagen FROM equipo WHERE id = ?',
+      'SELECT imagen, activo FROM equipo WHERE id = ?',
       [req.params.id]
     );
 
@@ -178,6 +160,8 @@ router.put('/:id', subirImagen, [idValido, ...reglas], async (req, res, next) =>
     }
 
     const imagenAnterior = filas[0].imagen;
+    const activoAnterior = filas[0].activo;
+
     let imagenFinal = imagenAnterior;
 
     if (req.file) {
@@ -187,14 +171,18 @@ router.put('/:id', subirImagen, [idValido, ...reglas], async (req, res, next) =>
       imagenFinal = null;
     }
 
+    const activoFinal = req.body.activo === undefined
+      ? activoAnterior
+      : (req.body.activo ? 1 : 0);
+
     await db.query(
       `UPDATE equipo
        SET
          nombre = ?,
          especialidad = ?,
-         especialidad_en = ?,
+         especialidad_en = NULL,
          descripcion = ?,
-         descripcion_en = ?,
+         descripcion_en = NULL,
          imagen = ?,
          orden = ?,
          activo = ?
@@ -202,19 +190,15 @@ router.put('/:id', subirImagen, [idValido, ...reglas], async (req, res, next) =>
       [
         req.body.nombre,
         req.body.especialidad,
-        req.body.especialidad_en || null,
         req.body.descripcion,
-        req.body.descripcion_en || null,
         imagenFinal,
         req.body.orden,
-        req.body.activo === undefined
-          ? 1
-          : (req.body.activo ? 1 : 0),
+        activoFinal,
         req.params.id,
       ]
     );
 
-    // Borrar imagen anterior después de actualizar la BD
+    // Borrar la imagen anterior después de actualizar la base de datos
     if (imagenNueva || imagenFinal === null) {
       borrarImagen(imagenAnterior);
     }

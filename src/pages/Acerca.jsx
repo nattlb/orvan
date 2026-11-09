@@ -1,8 +1,10 @@
+
 import { useEffect, useState } from 'react';
 
 import { STACK, SERVICIOS } from '../data/datos';
 import { api } from '../services/api';
 import Marquee from '../components/Marquee';
+import EquipoInteractivo from '../components/EquipoInteractivo';
 
 export default function Acerca() {
   const [integrantes, setIntegrantes] = useState([]);
@@ -16,10 +18,12 @@ export default function Acerca() {
   );
 
   useEffect(() => {
+    // Obtener integrantes desde la base de datos
     api('/equipo')
       .then((d) => setIntegrantes(d.integrantes || []))
       .catch(() => setIntegrantes([]));
 
+    // Obtener servicios desde la base de datos
     api('/servicios')
       .then((d) => {
         if (d.servicios && d.servicios.length > 0) {
@@ -40,53 +44,13 @@ export default function Acerca() {
 
           <div className="regla mt-6 rv"></div>
 
-          <p className="rv arriba mt-6 max-w-xl opacity-80">
-            Cada proyecto lo trabajamos entre todos, con un responsable por
-            área. Así el diseño, los datos y la seguridad avanzan juntos
-            desde el primer día.
+          <p className="rv arriba mt-6 opacity-80">
+            Cada proyecto lo trabajamos entre todos, con un responsable por área.
+            Así el diseño, los datos y la seguridad avanzan juntos desde el primer día.
           </p>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mt-14">
-            {integrantes.map((m, i) => (
-              <article
-                key={m.id}
-                className="tarjeta rv arriba"
-                style={{ '--orden': i }}
-              >
-                <div className="w-full aspect-square rounded-xl overflow-hidden mb-5 bg-gray-200/50 flex items-center justify-center">
-                  {m.imagen ? (
-                    <img
-                      src={m.imagen}
-                      alt={m.nombre}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span className="titulo text-5xl opacity-40">
-                      {m.nombre.charAt(0).toUpperCase()}
-                    </span>
-                  )}
-                </div>
-
-                <h3 className="text-lg font-semibold">
-                  {m.especialidad}
-                </h3>
-
-                <p className="mt-1 text-sm text-[#1D4ED8]">
-                  {m.nombre}
-                </p>
-
-                <p className="mt-4 text-sm opacity-80">
-                  {m.descripcion}
-                </p>
-              </article>
-            ))}
-
-            {integrantes.length === 0 && (
-              <p className="opacity-70">
-                Nuestro equipo estará disponible próximamente.
-              </p>
-            )}
-          </div>
+          {/* Nueva presentación interactiva */}
+          <EquipoInteractivo integrantes={integrantes} />
         </div>
       </section>
 

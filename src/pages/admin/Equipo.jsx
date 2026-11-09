@@ -5,9 +5,7 @@ import { api } from '../../services/api';
 const VACIO = {
   nombre: '',
   especialidad: '',
-  especialidad_en: '',
   descripcion: '',
-  descripcion_en: '',
   orden: 1,
   activo: true,
 };
@@ -20,10 +18,8 @@ function Formulario({ integrante, alGuardar, alCancelar }) {
       ? {
           nombre: integrante.nombre || '',
           especialidad: integrante.especialidad || '',
-          especialidad_en: integrante.especialidad_en || '',
           descripcion: integrante.descripcion || '',
-          descripcion_en: integrante.descripcion_en || '',
-          orden: integrante.orden,
+          orden: integrante.orden ?? 1,
           activo: Boolean(integrante.activo),
         }
       : { ...VACIO }
@@ -62,13 +58,10 @@ function Formulario({ integrante, alGuardar, alCancelar }) {
       return;
     }
 
-    if (v.especialidad_en.trim().length > 100) {
-      setError('La especialidad en inglés no puede superar los 100 caracteres.');
-      return;
-    }
+    const orden = Number(v.orden);
 
-    if (v.descripcion_en.trim().length > 1000) {
-      setError('La descripción en inglés no puede superar los 1000 caracteres.');
+    if (!Number.isInteger(orden) || orden < 0 || orden > 1000) {
+      setError('El orden debe ser un número entero entre 0 y 1000.');
       return;
     }
 
@@ -76,11 +69,9 @@ function Formulario({ integrante, alGuardar, alCancelar }) {
 
     datos.append('nombre', v.nombre.trim());
     datos.append('especialidad', v.especialidad.trim());
-    datos.append('especialidad_en', v.especialidad_en.trim());
     datos.append('descripcion', v.descripcion.trim());
-    datos.append('descripcion_en', v.descripcion_en.trim());
-    datos.append('orden', v.orden);
-    datos.append('activo', v.activo);
+    datos.append('orden', String(orden));
+    datos.append('activo', String(v.activo));
 
     if (imagen) datos.append('imagen', imagen);
     if (quitarImagen) datos.append('quitarImagen', 'true');
@@ -104,7 +95,7 @@ function Formulario({ integrante, alGuardar, alCancelar }) {
           : 'Integrante agregado correctamente.'
       );
     } catch (e) {
-      setError(e.message);
+      setError(e.message || 'No se pudo guardar el integrante.');
     } finally {
       setEnviando(false);
     }
@@ -116,12 +107,10 @@ function Formulario({ integrante, alGuardar, alCancelar }) {
         {editando ? 'Editar integrante' : 'Nuevo integrante'}
       </h3>
 
-      <h4 className="text-sm font-semibold text-[#60A5FA]">
-        Contenido en español
-      </h4>
-
       <div>
-        <label className="block text-sm mb-2">Nombre completo</label>
+        <label className="block text-sm mb-2">
+          Nombre completo
+        </label>
         <input
           className="campo"
           name="nombre"
@@ -129,11 +118,14 @@ function Formulario({ integrante, alGuardar, alCancelar }) {
           value={v.nombre}
           onChange={cambiar}
           maxLength={100}
+          required
         />
       </div>
 
       <div>
-        <label className="block text-sm mb-2">Especialidad</label>
+        <label className="block text-sm mb-2">
+          Especialidad
+        </label>
         <input
           className="campo"
           name="especialidad"
@@ -141,11 +133,14 @@ function Formulario({ integrante, alGuardar, alCancelar }) {
           value={v.especialidad}
           onChange={cambiar}
           maxLength={100}
+          required
         />
       </div>
 
       <div>
-        <label className="block text-sm mb-2">Descripción</label>
+        <label className="block text-sm mb-2">
+          Descripción
+        </label>
         <textarea
           className="campo"
           name="descripcion"
@@ -154,65 +149,33 @@ function Formulario({ integrante, alGuardar, alCancelar }) {
           value={v.descripcion}
           onChange={cambiar}
           maxLength={1000}
+          required
         />
         <p className="text-xs opacity-60 text-right mt-1">
           {v.descripcion.length}/1000
         </p>
       </div>
 
-      <div className="border-t border-gray-500/20 pt-4">
-        <h4 className="text-sm font-semibold text-[#60A5FA] mb-3">
-          English content (optional)
-        </h4>
-
-        <div className="mb-4">
-          <label className="block text-sm mb-2">
-            Speciality
-          </label>
-          <input
-            className="campo"
-            name="especialidad_en"
-            placeholder="E.g. Cybersecurity"
-            value={v.especialidad_en}
-            onChange={cambiar}
-            maxLength={100}
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm mb-2">
-            Description
-          </label>
-          <textarea
-            className="campo"
-            name="descripcion_en"
-            rows="4"
-            placeholder="Description of the team member"
-            value={v.descripcion_en}
-            onChange={cambiar}
-            maxLength={1000}
-          />
-          <p className="text-xs opacity-60 text-right mt-1">
-            {v.descripcion_en.length}/1000
-          </p>
-        </div>
-      </div>
-
       <div>
-        <label className="block text-sm mb-2">Orden de aparición</label>
+        <label className="block text-sm mb-2">
+          Orden de aparición
+        </label>
         <input
           className="campo"
           type="number"
           name="orden"
           min="0"
           max="1000"
+          step="1"
           value={v.orden}
           onChange={cambiar}
         />
       </div>
 
       <div>
-        <label className="block text-sm mb-2">Fotografía</label>
+        <label className="block text-sm mb-2">
+          Fotografía
+        </label>
         <input
           className="campo"
           type="file"
@@ -231,7 +194,10 @@ function Formulario({ integrante, alGuardar, alCancelar }) {
             <input
               type="checkbox"
               checked={quitarImagen}
-              onChange={(e) => setQuitarImagen(e.target.checked)}
+              onChange={(e) => {
+                setQuitarImagen(e.target.checked);
+                if (e.target.checked) setImagen(null);
+              }}
             />
             Quitar fotografía actual
           </label>
@@ -259,6 +225,7 @@ function Formulario({ integrante, alGuardar, alCancelar }) {
           type="button"
           className="btn btn-borde text-sm !py-2 !px-6"
           onClick={alCancelar}
+          disabled={enviando}
         >
           Cancelar
         </button>
@@ -282,12 +249,13 @@ export default function Equipo() {
   const [aviso, setAviso] = useState('');
   const [modo, setModo] = useState(null);
   const [confirmar, setConfirmar] = useState(null);
+  const [ocupado, setOcupado] = useState(false);
 
   const cargar = useCallback(() => {
     setCargando(true);
     setError('');
 
-    api('/admin/equipo')
+    return api('/admin/equipo')
       .then((d) => setIntegrantes(d.integrantes || []))
       .catch((e) => setError(e.message))
       .finally(() => setCargando(false));
@@ -297,14 +265,18 @@ export default function Equipo() {
     cargar();
   }, [cargar]);
 
-  const alGuardar = (mensaje) => {
+  const alGuardar = async (mensaje) => {
     setModo(null);
     setAviso(mensaje);
-    cargar();
+    await cargar();
   };
 
   const eliminar = async (integrante) => {
+    if (ocupado) return;
+
+    setOcupado(true);
     setError('');
+    setAviso('');
 
     try {
       await api(`/admin/equipo/${integrante.id}`, {
@@ -313,9 +285,11 @@ export default function Equipo() {
 
       setConfirmar(null);
       setAviso(`Se eliminó a ${integrante.nombre}.`);
-      cargar();
+      await cargar();
     } catch (e) {
-      setError(e.message);
+      setError(e.message || 'No se pudo eliminar el integrante.');
+    } finally {
+      setOcupado(false);
     }
   };
 
@@ -323,7 +297,9 @@ export default function Equipo() {
     <div>
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="text-2xl font-light">Nuestro equipo</h2>
+          <h2 className="text-2xl font-light">
+            Nuestro equipo
+          </h2>
           <p className="text-sm opacity-60 mt-2">
             Administrá los integrantes y sus especialidades.
           </p>
@@ -368,7 +344,9 @@ export default function Equipo() {
 
       <div className="mt-6 grid sm:grid-cols-2 gap-5">
         {cargando && integrantes.length === 0 && (
-          <p className="opacity-70">Cargando integrantes…</p>
+          <p className="opacity-70">
+            Cargando integrantes…
+          </p>
         )}
 
         {!cargando && integrantes.length === 0 && !error && (
@@ -414,14 +392,18 @@ export default function Equipo() {
                   <span className="text-xs opacity-70">
                     ¿Eliminar definitivamente?
                   </span>
+
                   <button
                     className="text-sm text-red-400 hover:underline"
+                    disabled={ocupado}
                     onClick={() => eliminar(m)}
                   >
                     Sí, eliminar
                   </button>
+
                   <button
                     className="text-sm opacity-70 hover:underline"
+                    disabled={ocupado}
                     onClick={() => setConfirmar(null)}
                   >
                     Cancelar
@@ -431,6 +413,7 @@ export default function Equipo() {
                 <>
                   <button
                     className="text-sm text-[#60A5FA] hover:underline"
+                    disabled={ocupado}
                     onClick={() => {
                       setModo(m);
                       setAviso('');
@@ -442,6 +425,7 @@ export default function Equipo() {
 
                   <button
                     className="text-sm text-red-400 hover:underline"
+                    disabled={ocupado}
                     onClick={() => setConfirmar(m.id)}
                   >
                     Eliminar

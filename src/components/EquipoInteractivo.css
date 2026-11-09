@@ -1,0 +1,374 @@
+
+/* =====================================
+   ORVAN - EQUIPO INTERACTIVO
+===================================== */
+
+.equipo-nuevo {
+  display: grid;
+  grid-template-columns: minmax(250px, 0.85fr) minmax(0, 1.8fr);
+  gap: 2.5rem;
+  align-items: center;
+}
+
+/* =====================================
+   SELECTOR DE INTEGRANTES
+===================================== */
+
+.equipo-nuevo .equipo-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-width: 0;
+}
+
+.equipo-nuevo .equipo-etiqueta {
+  color: var(--cielo);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+}
+
+.equipo-nuevo .equipo-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.equipo-nuevo .equipo-opcion {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  width: 100%;
+  padding: 0.85rem;
+  text-align: left;
+  color: var(--texto-principal);
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 16px;
+  cursor: pointer;
+  min-width: 0;
+
+  transition:
+    transform 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.equipo-nuevo .equipo-opcion:hover {
+  transform: translateX(5px);
+  border-color: var(--cielo);
+}
+
+.equipo-nuevo .equipo-opcion.seleccionado {
+  border-color: var(--cielo);
+  box-shadow: 0 0 18px rgba(59, 130, 246, 0.18);
+}
+
+.equipo-nuevo .equipo-numero {
+  color: var(--cielo);
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
+
+.equipo-nuevo .equipo-miniatura {
+  width: 58px;
+  height: 66px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--medianoche);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.equipo-nuevo .equipo-miniatura img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 20%;
+}
+
+.equipo-nuevo .equipo-miniatura span {
+  color: var(--cielo);
+  font-family: Cinzel, serif;
+  font-size: 1.5rem;
+}
+
+.equipo-nuevo .equipo-opcion-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.equipo-nuevo .equipo-opcion-texto strong {
+  font-family: Inter, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.equipo-nuevo .equipo-opcion-texto small {
+  color: var(--texto-secundario);
+  font-size: 0.8rem;
+}
+
+.equipo-nuevo .equipo-indicador {
+  color: var(--cielo);
+  font-size: 1.2rem;
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+.equipo-nuevo .equipo-opcion.seleccionado
+.equipo-indicador {
+  opacity: 1;
+}
+
+/* =====================================
+   PRESENTACIÓN PRINCIPAL
+===================================== */
+
+.equipo-nuevo .equipo-presentacion {
+  min-width: 0;
+}
+
+.equipo-nuevo .equipo-destacado {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1fr);
+  min-height: 390px;
+
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 22px;
+  overflow: hidden;
+
+  animation: equipoEntrada 0.55s ease both;
+}
+
+/* =====================================
+   FOTOGRAFÍA PRINCIPAL
+===================================== */
+
+.equipo-nuevo .equipo-foto {
+  min-width: 0;
+  min-height: 390px;
+  height: 100%;
+  overflow: hidden;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: var(--medianoche);
+}
+
+.equipo-nuevo .equipo-foto img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 20%;
+  animation: equipoFoto 0.7s ease both;
+}
+
+.equipo-nuevo .equipo-inicial {
+  font-family: Cinzel, serif;
+  font-size: 6rem;
+  color: var(--cielo);
+}
+
+/* =====================================
+   INFORMACIÓN DEL INTEGRANTE
+===================================== */
+
+.equipo-nuevo .equipo-informacion {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 2rem;
+  min-width: 0;
+}
+
+.equipo-nuevo .equipo-especialidad {
+  color: var(--cielo);
+  font-size: 0.95rem;
+  margin-top: 1rem;
+}
+
+.equipo-nuevo .equipo-nombre {
+  font-family: Cinzel, "Times New Roman", serif;
+  font-size: clamp(1.5rem, 2.5vw, 2.3rem);
+  font-weight: 400;
+  line-height: 1.2;
+  margin-top: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.equipo-nuevo .equipo-descripcion {
+  color: var(--texto-secundario);
+  font-size: 0.9rem;
+  line-height: 1.8;
+}
+
+/* =====================================
+   FLECHAS Y PUNTOS
+===================================== */
+
+.equipo-nuevo .equipo-navegacion {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  margin-top: 1.8rem;
+}
+
+.equipo-nuevo .equipo-flecha {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--border-card);
+  background: var(--bg-card);
+  color: var(--cielo);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 1.2rem;
+  cursor: pointer;
+
+  transition:
+    transform 0.3s ease,
+    border-color 0.3s ease,
+    background 0.3s ease;
+}
+
+.equipo-nuevo .equipo-flecha:hover {
+  transform: scale(1.08);
+  border-color: var(--cielo);
+}
+
+.equipo-nuevo .equipo-puntos {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.equipo-nuevo .equipo-punto {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--border-card);
+  cursor: pointer;
+  transition:
+    background 0.3s ease,
+    transform 0.3s ease;
+}
+
+.equipo-nuevo .equipo-punto.activo {
+  background: var(--cielo);
+  transform: scale(1.25);
+}
+
+/* =====================================
+   ANIMACIONES
+===================================== */
+
+@keyframes equipoEntrada {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes equipoFoto {
+  from {
+    opacity: 0.6;
+    transform: scale(1.04);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* =====================================
+   TABLETS
+===================================== */
+
+@media (max-width: 1100px) {
+  .equipo-nuevo {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+
+  .equipo-nuevo .equipo-lista {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* =====================================
+   CELULARES
+===================================== */
+
+@media (max-width: 600px) {
+  .equipo-nuevo {
+    grid-template-columns: 1fr;
+  }
+
+  .equipo-nuevo .equipo-lista {
+    grid-template-columns: 1fr;
+  }
+
+  .equipo-nuevo .equipo-destacado {
+    grid-template-columns: 1fr;
+  }
+
+  .equipo-nuevo .equipo-foto {
+    height: 350px;
+    min-height: 0;
+  }
+
+  .equipo-nuevo .equipo-foto img {
+    object-fit: contain;
+    object-position: center;
+  }
+
+  .equipo-nuevo .equipo-informacion {
+    padding: 1.5rem;
+  }
+
+  .equipo-nuevo .equipo-nombre {
+    font-size: 1.8rem;
+  }
+
+  .equipo-nuevo .equipo-navegacion {
+    gap: 1.5rem;
+  }
+}
+
+/* =====================================
+   ACCESIBILIDAD
+===================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .equipo-nuevo .equipo-destacado,
+  .equipo-nuevo .equipo-foto img {
+    animation: none;
+  }
+
+  .equipo-nuevo .equipo-opcion,
+  .equipo-nuevo .equipo-flecha,
+  .equipo-nuevo .equipo-punto {
+    transition: none;
+  }
+}

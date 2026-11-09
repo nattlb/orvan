@@ -1,9 +1,35 @@
-
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const mysql = require('mysql2/promise');
 
-const db = mysql.createPool({
+// Saber si estamos trabajando en producción
+const produccion = process.env.NODE_ENV === 'production';
+
+// Comprobar las credenciales
+if (produccion) {
+  const variables = [
+    'DB_HOST',
+    'DB_USER',
+    'DB_PASSWORD',
+    'DB_NAME'
+  ];
+
+  for (const variable of variables) {
+    if (!process.env[variable]) {
+      throw new Error(`Falta configurar ${variable}`);
+    }
+  }
+
+  if (process.env.DB_SSL !== 'true') {
+    throw new Error(
+      'La conexión online requiere DB_SSL=true'
+    );
+  }
+}
+
+// Configuración de MySQL
+const configuracion = {
   host: process.env.DB_HOST || 'localhost',
 
   port: Number(process.env.DB_PORT) || 3306,
@@ -30,30 +56,47 @@ const db = mysql.createPool({
 
   enableKeepAlive: true,
 
-  keepAliveInitialDelay: 0,
-});
+  keepAliveInitialDelay: 0
+};
 
-// Verifica la conexión con MySQL.
-// No modifica ni elimina información de la base de datos.
+// Activar conexión cifrada para la base online
+if (process.env.DB_SSL === 'true') {
+  configuracion.ssl = {
+    rejectUnauthorized: true
+  };
+}
+
+
+// Crear pool de conexiones
+const db = mysql.createPool(configuracion);
+
+// Comprobar conexión
 async function verificarConexion() {
+  let conexion;
+
   try {
-    const conexion = await db.getConnection();
+    conexion = await db.getConnection();
 
     await conexion.ping();
 
-    conexion.release();
-
-    console.log('[DB] Conexión con MySQL establecida correctamente.');
+    console.log(
+      '[DB] Conexión establecida correctamente.'
+    );
 
     return true;
 
   } catch (error) {
     console.error(
-      '[DB] No se pudo conectar con MySQL:',
+      '[DB] Error de conexión:',
       error.message
     );
 
     return false;
+
+  } finally {
+    if (conexion) {
+      conexion.release();
+    }
   }
 }
 
