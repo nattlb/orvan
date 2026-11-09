@@ -1,3 +1,4 @@
+
 require('dotenv').config({
   path: require('path').join(__dirname, '.env')
 });
@@ -5,6 +6,7 @@ require('dotenv').config({
 const express = require('express');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 
@@ -16,7 +18,7 @@ const { verificarCorreo } = require('./mailer');
 
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 16) {
   console.error(
-    'Falta JWT_SECRET en server/.env (mínimo 16 caracteres).'
+    'Falta JWT_SECRET (mínimo 16 caracteres).'
   );
 
   process.exit(1);
@@ -24,14 +26,43 @@ if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 16) {
 
 const app = express();
 const PUERTO = process.env.PORT || 4000;
+
 console.log('[CONFIG] TRUST_PROXY:', process.env.TRUST_PROXY);
 
-// Configuración de proxy confiable.
+// Render utiliza un proxy delante del servidor.
+// Configurar TRUST_PROXY=true solo en un entorno
+// donde el proxy esté correctamente controlado.
 if (process.env.TRUST_PROXY === 'true') {
-  app.set('trust proxy', 'loopback');
+  app.set('trust proxy', 1);
 }
 
-console.log('[CONFIG] Express trust proxy:', app.get('trust proxy'));
+console.log(
+  '[CONFIG] Express trust proxy:',
+  app.get('trust proxy')
+);
+
+// --------------------------------------------------
+// CORS - CONEXIÓN CON EL FRONTEND
+// --------------------------------------------------
+
+const origenesPermitidos = [
+  'http://localhost:3000',
+  'https://nattlb.github.io',
+];
+
+app.use(
+  cors({
+    origin: (origen, callback) => {
+      if (!origen || origenesPermitidos.includes(origen)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error('Origen no permitido por CORS'));
+    },
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+);
 
 // --------------------------------------------------
 // SEGURIDAD Y MIDDLEWARES
@@ -45,7 +76,6 @@ app.use(
   })
 );
 
-// Evita solicitudes con cuerpos JSON demasiado grandes.
 app.use(express.json({ limit: '50kb' }));
 
 // --------------------------------------------------
@@ -67,7 +97,7 @@ app.use(
 );
 
 // --------------------------------------------------
-// LÍMITE DE CONSULTAS DEL FORMULARIO
+// LÍMITE DE CONSULTAS
 // --------------------------------------------------
 
 app.use(
@@ -166,7 +196,6 @@ app.use((err, req, res, next) => {
     return next(err);
   }
 
-  // JSON mal formado.
   if (
     err instanceof SyntaxError &&
     err.status === 400 &&
@@ -177,7 +206,6 @@ app.use((err, req, res, next) => {
     });
   }
 
-  // Cuerpo demasiado grande.
   if (err.status === 413) {
     return res.status(413).json({
       error: 'La solicitud es demasiado grande.',
@@ -193,13 +221,11 @@ app.use((err, req, res, next) => {
 // INICIAR SERVIDOR
 // --------------------------------------------------
 
-const servidor = app.listen(PUERTO, async () => {
+const servidor = app.listen(PUERTO, '0.0.0.0', async () => {
   console.log(
-    `API de ORVAN escuchando en http://localhost:${PUERTO}`
+    `[SERVER] API de ORVAN escuchando en el puerto ${PUERTO}`
   );
 
-  // Gmail es un servicio complementario:
-  // si falla, el servidor continúa funcionando.
   const correoOk = await verificarCorreo();
 
   if (!correoOk) {
@@ -222,7 +248,9 @@ function cerrarServidor() {
   });
 
   setTimeout(() => {
-    console.error('[SERVER] Cierre forzado por tiempo de espera.');
+    console.error(
+      '[SERVER] Cierre forzado por tiempo de espera.'
+    );
     process.exit(1);
   }, 10000).unref();
 }
