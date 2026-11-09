@@ -1,8 +1,26 @@
 
-// Todas las llamadas al servidor pasan por acá.
-// En desarrollo, "proxy" en package.json redirige /api → http://localhost:4000
+// --------------------------------------------------
+// SERVICIO CENTRALIZADO DE API - ORVAN
+// --------------------------------------------------
 
-export const obtenerToken = () => localStorage.getItem('orvan_token');
+// En GitHub Pages usamos el backend publicado en Render.
+// En desarrollo usamos el proxy de React hacia localhost:4000.
+
+const API_BASE =
+  process.env.NODE_ENV === 'production'
+    ? 'https://orvan-x9yv.onrender.com/api'
+    : '/api';
+
+// --------------------------------------------------
+// TOKEN DE AUTENTICACIÓN
+// --------------------------------------------------
+
+export const obtenerToken = () =>
+  localStorage.getItem('orvan_token');
+
+// --------------------------------------------------
+// SOLICITUDES A LA API
+// --------------------------------------------------
 
 export async function api(ruta, { metodo = 'GET', cuerpo } = {}) {
   const cabeceras = {};
@@ -12,9 +30,10 @@ export async function api(ruta, { metodo = 'GET', cuerpo } = {}) {
     cabeceras.Authorization = `Bearer ${token}`;
   }
 
-  // Si el cuerpo es FormData, el navegador configura el Content-Type.
+  // FormData se utiliza para subir archivos.
   const esFormulario =
-    typeof FormData !== 'undefined' && cuerpo instanceof FormData;
+    typeof FormData !== 'undefined' &&
+    cuerpo instanceof FormData;
 
   if (cuerpo !== undefined && !esFormulario) {
     cabeceras['Content-Type'] = 'application/json';
@@ -23,7 +42,7 @@ export async function api(ruta, { metodo = 'GET', cuerpo } = {}) {
   let respuesta;
 
   try {
-    respuesta = await fetch(`/api${ruta}`, {
+    respuesta = await fetch(`${API_BASE}${ruta}`, {
       method: metodo,
       headers: cabeceras,
       body:
@@ -35,15 +54,19 @@ export async function api(ruta, { metodo = 'GET', cuerpo } = {}) {
     });
   } catch {
     const error = new Error(
-      'No se pudo conectar con el servidor. ¿Está encendido?'
+      'No se pudo conectar con el servidor de ORVAN. Probá nuevamente.'
     );
 
     error.status = 0;
     throw error;
   }
 
-  // Intentamos leer la respuesta como JSON.
-  const tipoContenido = respuesta.headers.get('content-type') || '';
+  // --------------------------------------------------
+  // LEER RESPUESTA DEL SERVIDOR
+  // --------------------------------------------------
+
+  const tipoContenido =
+    respuesta.headers.get('content-type') || '';
 
   let datos = {};
 
@@ -51,14 +74,20 @@ export async function api(ruta, { metodo = 'GET', cuerpo } = {}) {
     datos = await respuesta.json().catch(() => ({}));
   } else {
     const texto = await respuesta.text().catch(() => '');
-    if (texto) datos.error = texto;
+
+    if (texto) {
+      datos.error = texto;
+    }
   }
 
-  // Conservamos el código HTTP para que otros archivos
-  // puedan distinguir entre errores 401, 403, 500, etc.
+  // --------------------------------------------------
+  // MANEJO DE ERRORES
+  // --------------------------------------------------
+
   if (!respuesta.ok) {
     const error = new Error(
-      datos.error || `Ocurrió un error (${respuesta.status}). Probá de nuevo.`
+      datos.error ||
+      `Ocurrió un error (${respuesta.status}). Probá de nuevo.`
     );
 
     error.status = respuesta.status;

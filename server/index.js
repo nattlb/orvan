@@ -17,52 +17,64 @@ const { verificarCorreo } = require('./mailer');
 // --------------------------------------------------
 
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 16) {
-  console.error(
-    'Falta JWT_SECRET (mínimo 16 caracteres).'
-  );
-
+  console.error('Falta JWT_SECRET (mínimo 16 caracteres).');
   process.exit(1);
 }
 
 const app = express();
 const PUERTO = process.env.PORT || 4000;
 
-console.log('[CONFIG] TRUST_PROXY:', process.env.TRUST_PROXY);
-
-// Render utiliza un proxy delante del servidor.
-// Configurar TRUST_PROXY=true solo en un entorno
-// donde el proxy esté correctamente controlado.
-if (process.env.TRUST_PROXY === 'true') {
+// Render utiliza un proxy.
+// En localhost no necesitamos activar trust proxy.
+if (
+  process.env.NODE_ENV === 'production' &&
+  process.env.TRUST_PROXY === 'true'
+) {
   app.set('trust proxy', 1);
 }
 
-console.log(
-  '[CONFIG] Express trust proxy:',
-  app.get('trust proxy')
-);
+console.log('[CONFIG] Entorno:', process.env.NODE_ENV || 'development');
+console.log('[CONFIG] Express trust proxy:', app.get('trust proxy'));
 
 // --------------------------------------------------
-// CORS - CONEXIÓN CON EL FRONTEND
+// CORS - FRONTEND LOCAL Y GITHUB PAGES
 // --------------------------------------------------
 
 const origenesPermitidos = [
   'http://localhost:3000',
-  'https://nattlb.github.io',
+  'http://127.0.0.1:3000',
+  'https://nattlb.github.io'
 ];
 
-app.use(
-  cors({
-    origin: (origen, callback) => {
-      if (!origen || origenesPermitidos.includes(origen)) {
-        return callback(null, true);
-      }
+const opcionesCors = {
+  origin: (origen, callback) => {
+    // Permitir solicitudes sin encabezado Origin,
+    // como las realizadas desde CMD o el propio servidor.
+    if (!origen) {
+      return callback(null, true);
+    }
 
-      return callback(new Error('Origen no permitido por CORS'));
-    },
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  })
-);
+    // Eliminar una barra final accidental.
+    const origenNormalizado = origen.replace(/\/$/, '');
+
+    if (origenesPermitidos.includes(origenNormalizado)) {
+      return callback(null, true);
+    }
+
+    console.warn('[CORS] Origen rechazado:', origen);
+
+    // Rechazar sin provocar una excepción interna.
+    return callback(null, false);
+  },
+
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+
+  allowedHeaders: ['Content-Type', 'Authorization'],
+
+  optionsSuccessStatus: 204
+};
+
+app.use(cors(opcionesCors));
 
 // --------------------------------------------------
 // SEGURIDAD Y MIDDLEWARES
@@ -71,8 +83,8 @@ app.use(
 app.use(
   helmet({
     crossOriginResourcePolicy: {
-      policy: 'cross-origin',
-    },
+      policy: 'cross-origin'
+    }
   })
 );
 
@@ -91,8 +103,8 @@ app.use(
     legacyHeaders: false,
 
     message: {
-      error: 'Demasiados intentos. Probá de nuevo en unos minutos.',
-    },
+      error: 'Demasiados intentos. Probá de nuevo en unos minutos.'
+    }
   })
 );
 
@@ -109,8 +121,8 @@ app.use(
     legacyHeaders: false,
 
     message: {
-      error: 'Enviaste muchas consultas. Probá de nuevo más tarde.',
-    },
+      error: 'Enviaste muchas consultas. Probá de nuevo más tarde.'
+    }
   })
 );
 
@@ -121,14 +133,14 @@ app.use(
 const carpetaUploads = path.join(__dirname, 'uploads');
 
 fs.mkdirSync(carpetaUploads, {
-  recursive: true,
+  recursive: true
 });
 
 app.use(
   '/uploads',
   express.static(carpetaUploads, {
     dotfiles: 'deny',
-    index: false,
+    index: false
   })
 );
 
@@ -145,8 +157,8 @@ app.use(
     legacyHeaders: false,
 
     message: {
-      error: 'Demasiadas solicitudes de visitas.',
-    },
+      error: 'Demasiadas solicitudes de visitas.'
+    }
   })
 );
 
@@ -157,7 +169,7 @@ app.use(
 app.get('/api/salud', (req, res) => {
   res.json({
     ok: true,
-    mensaje: 'Servidor ORVAN funcionando correctamente.',
+    mensaje: 'Servidor ORVAN funcionando correctamente.'
   });
 });
 
@@ -181,7 +193,7 @@ app.use('/api/operador', require('./routes/operador'));
 
 app.use('/api', (req, res) => {
   res.status(404).json({
-    error: 'Ruta no encontrada.',
+    error: 'Ruta no encontrada.'
   });
 });
 
@@ -196,24 +208,27 @@ app.use((err, req, res, next) => {
     return next(err);
   }
 
+  // JSON incorrecto.
   if (
     err instanceof SyntaxError &&
     err.status === 400 &&
     'body' in err
   ) {
     return res.status(400).json({
-      error: 'El formato de los datos enviados no es válido.',
+      error: 'El formato de los datos enviados no es válido.'
     });
   }
 
+  // Solicitud demasiado grande.
   if (err.status === 413) {
     return res.status(413).json({
-      error: 'La solicitud es demasiado grande.',
+      error: 'La solicitud es demasiado grande.'
     });
   }
 
+  // Error general.
   return res.status(500).json({
-    error: 'Error interno del servidor.',
+    error: 'Error interno del servidor.'
   });
 });
 

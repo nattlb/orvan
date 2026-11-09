@@ -12,9 +12,8 @@ const { verificarToken } = require('../middleware/auth');
 // CONFIGURACIÓN
 // --------------------------------------------------
 
-// Hash falso para mantener un tiempo de comparación similar
-// cuando el email ingresado no existe.
-
+// Hash falso para mantener un tiempo de comparación
+// similar cuando el email no existe.
 const HASH_FALSO = bcrypt.hashSync('no-existe', 10);
 
 // --------------------------------------------------
@@ -36,7 +35,7 @@ const firmar = (usuario) =>
   );
 
 // Datos públicos del usuario.
-// Nunca enviar la contraseña ni su hash al frontend.
+// Nunca enviar contraseñas ni hashes al frontend.
 const publico = (usuario) => ({
   id: usuario.id,
   nombre: usuario.nombre,
@@ -57,6 +56,16 @@ const revisar = (req, res, next) => {
   next();
 };
 
+// Registrar errores del backend sin mostrar
+// contraseñas, tokens ni consultas completas.
+const registrarError = (operacion, error) => {
+  console.error(`[AUTH ${operacion}] Error:`, {
+    codigo: error.code || 'SIN_CODIGO',
+    mensaje: error.message,
+    sqlState: error.sqlState || null,
+  });
+};
+
 // --------------------------------------------------
 // REGISTRO
 // POST /api/auth/registro
@@ -71,7 +80,9 @@ router.post(
       .bail()
       .trim()
       .matches(/^[A-Za-zÁÉÍÓÚáéíóúÑñÜü' ]{3,60}$/)
-      .withMessage('Ingresá tu nombre (solo letras, mínimo 3 caracteres).'),
+      .withMessage(
+        'Ingresá tu nombre (solo letras, mínimo 3 caracteres).'
+      ),
 
     body('email')
       .isString()
@@ -90,7 +101,9 @@ router.post(
       .withMessage('La contraseña debe ser texto.')
       .bail()
       .matches(/^(?=.*\d).{8,64}$/)
-      .withMessage('La contraseña debe tener entre 8 y 64 caracteres y al menos un número.'),
+      .withMessage(
+        'La contraseña debe tener entre 8 y 64 caracteres y al menos un número.'
+      ),
   ],
 
   revisar,
@@ -101,12 +114,11 @@ router.post(
     try {
       const { nombre, email, clave } = req.body;
 
-      // Obtener una conexión para realizar una transacción.
+      // Iniciar transacción.
       conexion = await db.getConnection();
-
       await conexion.beginTransaction();
 
-      // Comprobar si el email ya está registrado.
+      // Comprobar si el email existe.
       const [existe] = await conexion.query(
         'SELECT id FROM usuarios WHERE email = ?',
         [email]
@@ -144,7 +156,7 @@ router.post(
         [usuario.id]
       );
 
-      // Confirmar ambas operaciones.
+      // Confirmar transacción.
       await conexion.commit();
 
       return res.status(201).json({
@@ -157,20 +169,17 @@ router.post(
         try {
           await conexion.rollback();
         } catch (errorRollback) {
-          console.error(
-            '[AUTH] Error al deshacer el registro:',
-            errorRollback.message
-          );
+          registrarError('ROLLBACK', errorRollback);
         }
       }
 
-      // Controlar duplicados por concurrencia.
       if (error.code === 'ER_DUP_ENTRY') {
         return res.status(409).json({
           error: 'Ese email ya está registrado.',
         });
       }
 
+      registrarError('REGISTRO', error);
       next(error);
 
     } finally {
@@ -218,7 +227,7 @@ router.post(
     try {
       const { email, clave } = req.body;
 
-      // Buscar usuario.
+      // Buscar usuario en la base de datos.
       const [filas] = await db.query(
         `SELECT id, nombre, email, rol, activo, clave_hash
          FROM usuarios
@@ -228,7 +237,7 @@ router.post(
 
       const usuario = filas[0];
 
-      // Comparar incluso si el usuario no existe.
+      // Comparar contraseña.
       const coincide = await bcrypt.compare(
         clave,
         usuario ? usuario.clave_hash : HASH_FALSO
@@ -241,18 +250,24 @@ router.post(
       }
 
       // Registrar inicio de sesión.
+      // Si falla, el error se registra para diagnosticarlo.
       await db.query(
         'INSERT INTO accesos (usuario_id) VALUES (?)',
         [usuario.id]
       );
 
-      // Generar token y devolver datos públicos.
+      // Generar token JWT.
+      const token = firmar(usuario);
+
       return res.json({
-        token: firmar(usuario),
+        token,
         usuario: publico(usuario),
       });
 
     } catch (error) {
+      // Diagnóstico del error de inicio de sesión.
+      registrarError('LOGIN', error);
+
       next(error);
     }
   }
@@ -289,6 +304,7 @@ router.get(
       });
 
     } catch (error) {
+      registrarError('ME', error);
       next(error);
     }
   }
