@@ -11,11 +11,10 @@ import App from './App';
 import { PrefsProvider } from './context/PrefsContext';
 import { AuthProvider } from './context/AuthContext';
 
-
 const root = ReactDOM.createRoot(document.getElementById('root'));
 
 root.render(
-  <BrowserRouter>
+  <BrowserRouter basename={process.env.PUBLIC_URL || '/'}>
     <PrefsProvider>
       <AuthProvider>
         <App />

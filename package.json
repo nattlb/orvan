@@ -2,6 +2,7 @@
   "name": "orvan",
   "version": "0.1.0",
   "private": true,
+  "homepage": "https://nattlb.github.io/orvan",
   "proxy": "http://localhost:4000",
   "dependencies": {
     "@testing-library/dom": "^10.4.2",
