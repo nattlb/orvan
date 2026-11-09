@@ -6,10 +6,12 @@ const db = require('../db');
 const {
   subirGaleria,
   guardarImagen,
-  borrarImagen,
+  borrarImagen
 } = require('../middleware/subida');
 
-// ====================== FUNCIONES AUXILIARES ======================
+// ==================================================
+// FUNCIONES AUXILIARES
+// ==================================================
 
 const MAX_GALERIA = 15;
 
@@ -26,22 +28,33 @@ const idValido = param('id')
 const manejarError = (error, res, next) => {
   if (error.status) {
     return res.status(error.status).json({
-      error: error.message,
+      error: error.message
     });
   }
 
   next(error);
 };
 
-const borrarImagenSeguro = (imagen) => {
+// Eliminar imágenes de Cloudinary sin interrumpir
+// las operaciones de la base de datos.
+async function borrarImagenSeguro(imagen) {
   if (!imagen) return;
 
   try {
-    borrarImagen(imagen);
+    await borrarImagen(imagen);
   } catch (error) {
-    console.error('No se pudo borrar la imagen:', error);
+    console.error(
+      '[CONTENIDO] No se pudo borrar la imagen:',
+      error.message
+    );
   }
-};
+}
+
+async function borrarVariasImagenes(imagenes) {
+  for (const imagen of imagenes) {
+    await borrarImagenSeguro(imagen);
+  }
+}
 
 const crearError = (mensaje, status = 400) => {
   const error = new Error(mensaje);
@@ -52,11 +65,16 @@ const crearError = (mensaje, status = 400) => {
 const textoOpcional = (valor) =>
   typeof valor === 'string' ? valor.trim() : '';
 
-const archivosGaleria = (req) => req.files?.galeria || [];
+const archivosGaleria = (req) =>
+  req.files?.galeria || [];
 
-const archivoPrincipal = (req) => req.files?.imagen?.[0] || null;
+const archivoPrincipal = (req) =>
+  req.files?.imagen?.[0] || null;
 
-// Verifica las firmas de los archivos antes de guardarlos.
+// ==================================================
+// VALIDAR IMÁGENES
+// ==================================================
+
 function imagenValida(file) {
   const buf = file.buffer;
 
@@ -65,23 +83,29 @@ function imagenValida(file) {
     buf[0] === 0xff &&
     buf[1] === 0xd8 &&
     buf[2] === 0xff
-  ) return true;
+  ) {
+    return true;
+  }
 
   if (
     buf.length >= 8 &&
     buf.subarray(0, 8).equals(
       Buffer.from([
         0x89, 0x50, 0x4e, 0x47,
-        0x0d, 0x0a, 0x1a, 0x0a,
+        0x0d, 0x0a, 0x1a, 0x0a
       ])
     )
-  ) return true;
+  ) {
+    return true;
+  }
 
   if (
     buf.length >= 12 &&
     buf.toString('ascii', 0, 4) === 'RIFF' &&
     buf.toString('ascii', 8, 12) === 'WEBP'
-  ) return true;
+  ) {
+    return true;
+  }
 
   return false;
 }
@@ -89,7 +113,7 @@ function imagenValida(file) {
 function validarArchivos(req) {
   const archivos = [
     ...(archivoPrincipal(req) ? [archivoPrincipal(req)] : []),
-    ...archivosGaleria(req),
+    ...archivosGaleria(req)
   ];
 
   if (archivos.some((archivo) => !imagenValida(archivo))) {
@@ -99,7 +123,10 @@ function validarArchivos(req) {
   }
 }
 
-// Recibe un arreglo JSON con los ID de las imágenes a quitar.
+// ==================================================
+// IMÁGENES DE GALERÍA
+// ==================================================
+
 function obtenerIdsEliminar(valor) {
   if (!valor) return [];
 
@@ -108,7 +135,9 @@ function obtenerIdsEliminar(valor) {
   try {
     ids = JSON.parse(valor);
   } catch {
-    throw crearError('La lista de imágenes a eliminar no es válida.');
+    throw crearError(
+      'La lista de imágenes a eliminar no es válida.'
+    );
   }
 
   if (
@@ -116,7 +145,9 @@ function obtenerIdsEliminar(valor) {
     ids.length > MAX_GALERIA ||
     ids.some((id) => !Number.isSafeInteger(id) || id < 1)
   ) {
-    throw crearError('Los identificadores de imágenes no son válidos.');
+    throw crearError(
+      'Los identificadores de imágenes no son válidos.'
+    );
   }
 
   return [...new Set(ids)];
@@ -152,94 +183,124 @@ async function obtenerProyectos() {
   return proyectos;
 }
 
-// ====================== PROYECTOS ======================
+// ==================================================
+// VALIDACIONES DE PROYECTOS
+// ==================================================
 
 const reglasProyecto = [
   body('titulo')
     .isString()
     .trim()
     .isLength({ min: 3, max: 100 })
-    .withMessage('El título debe tener entre 3 y 100 caracteres.'),
+    .withMessage(
+      'El título debe tener entre 3 y 100 caracteres.'
+    ),
 
   body('descripcion')
     .isString()
     .trim()
     .isLength({ min: 10, max: 1000 })
-    .withMessage('La descripción debe tener entre 10 y 1000 caracteres.'),
+    .withMessage(
+      'La descripción debe tener entre 10 y 1000 caracteres.'
+    ),
 
   body('objetivo')
     .optional({ checkFalsy: true })
     .isString()
     .trim()
     .isLength({ max: 3000 })
-    .withMessage('El objetivo no puede superar los 3000 caracteres.'),
+    .withMessage(
+      'El objetivo no puede superar los 3000 caracteres.'
+    ),
 
   body('caracteristicas')
     .optional({ checkFalsy: true })
     .isString()
     .trim()
     .isLength({ max: 5000 })
-    .withMessage('Las características no pueden superar los 5000 caracteres.'),
+    .withMessage(
+      'Las características no pueden superar los 5000 caracteres.'
+    ),
 
   body('tecnologias')
     .optional({ checkFalsy: true })
     .isString()
     .trim()
     .isLength({ max: 200 })
-    .withMessage('Las tecnologías no pueden superar los 200 caracteres.'),
+    .withMessage(
+      'Las tecnologías no pueden superar los 200 caracteres.'
+    ),
 
   body('url_demo')
     .optional({ checkFalsy: true })
     .isString()
     .trim()
     .isLength({ max: 255 })
-    .withMessage('La URL de la demo es demasiado larga.')
+    .withMessage(
+      'La URL de la demo es demasiado larga.'
+    )
     .bail()
     .isURL({
       protocols: ['http', 'https'],
       require_protocol: true,
-      require_tld: false,
+      require_tld: false
     })
-    .withMessage('La demo debe tener una URL HTTP o HTTPS válida.'),
+    .withMessage(
+      'La demo debe tener una URL HTTP o HTTPS válida.'
+    ),
 
   body('url_repositorio')
     .optional({ checkFalsy: true })
     .isString()
     .trim()
     .isLength({ max: 255 })
-    .withMessage('La URL del repositorio es demasiado larga.')
+    .withMessage(
+      'La URL del repositorio es demasiado larga.'
+    )
     .bail()
     .isURL({
       protocols: ['http', 'https'],
       require_protocol: true,
-      require_tld: false,
+      require_tld: false
     })
-    .withMessage('El repositorio debe tener una URL HTTP o HTTPS válida.'),
+    .withMessage(
+      'El repositorio debe tener una URL HTTP o HTTPS válida.'
+    ),
 
   body('quitarImagen')
     .optional()
     .isBoolean()
-    .withMessage('El valor para quitar la imagen no es válido.')
-    .toBoolean(),
+    .withMessage(
+      'El valor para quitar la imagen no es válido.'
+    )
+    .toBoolean()
 ];
 
+// ==================================================
 // LISTAR PROYECTOS
+// ==================================================
+
 router.get('/proyectos', async (req, res, next) => {
   try {
     const proyectos = await obtenerProyectos();
+
     res.json({ proyectos });
   } catch (error) {
     next(error);
   }
 });
 
+// ==================================================
 // CREAR PROYECTO
+// ==================================================
+
 router.post(
   '/proyectos',
   subirGaleria,
   reglasProyecto,
   async (req, res, next) => {
     const archivosGuardados = [];
+
     let conexion;
     let transaccion = false;
 
@@ -253,24 +314,49 @@ router.post(
       validarArchivos(req);
 
       if (archivosGaleria(req).length > MAX_GALERIA) {
-        throw crearError('Solo se permiten 15 imágenes adicionales.');
+        throw crearError(
+          'Solo se permiten 15 imágenes adicionales.'
+        );
       }
 
+      let imagenPrincipal = null;
+
+      // Subir imagen principal a Cloudinary.
+      if (archivoPrincipal(req)) {
+        imagenPrincipal = await guardarImagen(
+          archivoPrincipal(req)
+        );
+
+        archivosGuardados.push(imagenPrincipal);
+      }
+
+      // Subir imágenes de galería.
+      const imagenesNuevas = [];
+
+      for (const archivo of archivosGaleria(req)) {
+        const ruta = await guardarImagen(archivo);
+
+        archivosGuardados.push(ruta);
+        imagenesNuevas.push(ruta);
+      }
+
+      // Iniciar transacción en TiDB Cloud.
       conexion = await db.getConnection();
       await conexion.beginTransaction();
       transaccion = true;
 
-      let imagenPrincipal = null;
-
-      if (archivoPrincipal(req)) {
-        imagenPrincipal = guardarImagen(archivoPrincipal(req));
-        archivosGuardados.push(imagenPrincipal);
-      }
-
       const [resultado] = await conexion.query(
         `INSERT INTO proyectos
-         (titulo, descripcion, objetivo, caracteristicas,
-          tecnologias, url_demo, url_repositorio, imagen)
+         (
+           titulo,
+           descripcion,
+           objetivo,
+           caracteristicas,
+           tecnologias,
+           url_demo,
+           url_repositorio,
+           imagen
+         )
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           req.body.titulo,
@@ -280,21 +366,22 @@ router.post(
           textoOpcional(req.body.tecnologias),
           textoOpcional(req.body.url_demo) || null,
           textoOpcional(req.body.url_repositorio) || null,
-          imagenPrincipal,
+          imagenPrincipal
         ]
       );
 
       const proyectoId = resultado.insertId;
 
-      for (let i = 0; i < archivosGaleria(req).length; i++) {
-        const ruta = guardarImagen(archivosGaleria(req)[i]);
-        archivosGuardados.push(ruta);
-
+      for (let i = 0; i < imagenesNuevas.length; i++) {
         await conexion.query(
           `INSERT INTO proyecto_imagenes
            (proyecto_id, imagen, orden)
            VALUES (?, ?, ?)`,
-          [proyectoId, ruta, i]
+          [
+            proyectoId,
+            imagenesNuevas[i],
+            i
+          ]
         );
       }
 
@@ -304,26 +391,36 @@ router.post(
       res.status(201).json({
         ok: true,
         id: proyectoId,
-        mensaje: 'Proyecto creado correctamente.',
+        mensaje: 'Proyecto creado correctamente.'
       });
+
     } catch (error) {
-      if (transaccion) {
+      if (transaccion && conexion) {
         try {
           await conexion.rollback();
         } catch (rollbackError) {
-          console.error('Error al revertir proyecto:', rollbackError);
+          console.error(
+            'Error al revertir proyecto:',
+            rollbackError
+          );
         }
       }
 
-      archivosGuardados.forEach(borrarImagenSeguro);
+      // Si falla la operación, limpiar las imágenes nuevas.
+      await borrarVariasImagenes(archivosGuardados);
+
       manejarError(error, res, next);
+
     } finally {
       if (conexion) conexion.release();
     }
   }
 );
 
+// ==================================================
 // EDITAR PROYECTO
+// ==================================================
+
 router.put(
   '/proyectos/:id',
   subirGaleria,
@@ -331,6 +428,7 @@ router.put(
   async (req, res, next) => {
     const archivosGuardados = [];
     const archivosParaBorrar = [];
+
     let conexion;
     let transaccion = false;
 
@@ -360,7 +458,10 @@ router.put(
       );
 
       if (!filas.length) {
-        throw crearError('El proyecto no existe.', 404);
+        throw crearError(
+          'El proyecto no existe.',
+          404
+        );
       }
 
       const imagenAnterior = filas[0].imagen;
@@ -389,16 +490,21 @@ router.put(
       if (cantidadFinal > MAX_GALERIA) {
         throw crearError(
           'Un proyecto puede tener como máximo 15 imágenes adicionales.'
-         );
+        );
       }
 
+      // Reemplazar imagen principal.
       if (archivoPrincipal(req)) {
-        imagenFinal = guardarImagen(archivoPrincipal(req));
+        imagenFinal = await guardarImagen(
+          archivoPrincipal(req)
+        );
+
         archivosGuardados.push(imagenFinal);
 
         if (imagenAnterior) {
           archivosParaBorrar.push(imagenAnterior);
         }
+
       } else if (req.body.quitarImagen === true) {
         imagenFinal = null;
 
@@ -427,10 +533,11 @@ router.put(
           textoOpcional(req.body.url_demo) || null,
           textoOpcional(req.body.url_repositorio) || null,
           imagenFinal,
-          req.params.id,
+          req.params.id
         ]
       );
 
+      // Quitar imágenes seleccionadas de la galería.
       for (const item of imagenesEliminar) {
         await conexion.query(
           `DELETE FROM proyecto_imagenes
@@ -450,15 +557,21 @@ router.put(
         -1
       ) + 1;
 
+      // Agregar nuevas imágenes a la galería.
       for (const archivo of archivosGaleria(req)) {
-        const ruta = guardarImagen(archivo);
+        const ruta = await guardarImagen(archivo);
+
         archivosGuardados.push(ruta);
 
         await conexion.query(
           `INSERT INTO proyecto_imagenes
            (proyecto_id, imagen, orden)
            VALUES (?, ?, ?)`,
-          [req.params.id, ruta, orden]
+          [
+            req.params.id,
+            ruta,
+            orden
+          ]
         );
 
         orden++;
@@ -467,30 +580,41 @@ router.put(
       await conexion.commit();
       transaccion = false;
 
-      archivosParaBorrar.forEach(borrarImagenSeguro);
+      // Borrar las imágenes antiguas solamente
+      // después de confirmar los cambios.
+      await borrarVariasImagenes(archivosParaBorrar);
 
       res.json({
         ok: true,
-        mensaje: 'Proyecto actualizado correctamente.',
+        mensaje: 'Proyecto actualizado correctamente.'
       });
+
     } catch (error) {
-      if (transaccion) {
+      if (transaccion && conexion) {
         try {
           await conexion.rollback();
         } catch (rollbackError) {
-          console.error('Error al revertir cambios:', rollbackError);
+          console.error(
+            'Error al revertir cambios:',
+            rollbackError
+          );
         }
       }
 
-      archivosGuardados.forEach(borrarImagenSeguro);
+      await borrarVariasImagenes(archivosGuardados);
+
       manejarError(error, res, next);
+
     } finally {
       if (conexion) conexion.release();
     }
   }
 );
 
+// ==================================================
 // ELIMINAR PROYECTO
+// ==================================================
+
 router.delete(
   '/proyectos/:id',
   idValido,
@@ -518,7 +642,10 @@ router.delete(
       );
 
       if (!filas.length) {
-        throw crearError('El proyecto no existe.', 404);
+        throw crearError(
+          'El proyecto no existe.',
+          404
+        );
       }
 
       const galeria = await obtenerGaleria(
@@ -534,49 +661,59 @@ router.delete(
       await conexion.commit();
       transaccion = false;
 
-      // MySQL elimina los registros relacionados mediante CASCADE.
-      // También eliminamos los archivos físicos.
-      borrarImagenSeguro(filas[0].imagen);
+      // Eliminar fotografías de Cloudinary.
+      await borrarImagenSeguro(filas[0].imagen);
 
-      galeria.forEach((item) => {
-        borrarImagenSeguro(item.imagen);
-      });
+      await borrarVariasImagenes(
+        galeria.map((item) => item.imagen)
+      );
 
       res.json({
         ok: true,
-        mensaje: 'Proyecto eliminado correctamente.',
+        mensaje: 'Proyecto eliminado correctamente.'
       });
+
     } catch (error) {
-      if (transaccion) {
+      if (transaccion && conexion) {
         try {
           await conexion.rollback();
         } catch (rollbackError) {
-          console.error('Error al revertir eliminación:', rollbackError);
+          console.error(
+            'Error al revertir eliminación:',
+            rollbackError
+          );
         }
       }
 
       manejarError(error, res, next);
+
     } finally {
       if (conexion) conexion.release();
     }
   }
 );
 
-// ====================== SERVICIOS ======================
-// Esta sección conserva el funcionamiento anterior.
+// ==================================================
+// SERVICIOS
+// ==================================================
+// Conservamos la administración original de servicios.
 
 const reglasServicio = [
   body('titulo')
     .isString()
     .trim()
     .isLength({ min: 3, max: 100 })
-    .withMessage('El título debe tener entre 3 y 100 caracteres.'),
+    .withMessage(
+      'El título debe tener entre 3 y 100 caracteres.'
+    ),
 
   body('descripcion')
     .isString()
     .trim()
     .isLength({ min: 10, max: 500 })
-    .withMessage('La descripción debe tener entre 10 y 500 caracteres.'),
+    .withMessage(
+      'La descripción debe tener entre 10 y 500 caracteres.'
+    )
 ];
 
 // LISTAR SERVICIOS
@@ -589,6 +726,7 @@ router.get('/servicios', async (req, res, next) => {
     );
 
     res.json({ servicios });
+
   } catch (error) {
     next(error);
   }
@@ -607,18 +745,21 @@ router.post(
       }
 
       const [resultado] = await db.query(
-        'INSERT INTO servicios (titulo, descripcion) VALUES (?, ?)',
+        `INSERT INTO servicios
+         (titulo, descripcion)
+         VALUES (?, ?)`,
         [
           req.body.titulo,
-          req.body.descripcion,
+          req.body.descripcion
         ]
       );
 
       res.status(201).json({
         ok: true,
         id: resultado.insertId,
-        mensaje: 'Servicio creado correctamente.',
+        mensaje: 'Servicio creado correctamente.'
       });
+
     } catch (error) {
       next(error);
     }
@@ -644,25 +785,27 @@ router.put(
 
       if (!existentes.length) {
         return res.status(404).json({
-          error: 'El servicio no existe.',
+          error: 'El servicio no existe.'
         });
       }
 
       await db.query(
         `UPDATE servicios
-         SET titulo = ?, descripcion = ?
+         SET titulo = ?,
+             descripcion = ?
          WHERE id = ?`,
         [
           req.body.titulo,
           req.body.descripcion,
-          req.params.id,
+          req.params.id
         ]
       );
 
       res.json({
         ok: true,
-        mensaje: 'Servicio actualizado correctamente.',
+        mensaje: 'Servicio actualizado correctamente.'
       });
+
     } catch (error) {
       next(error);
     }
@@ -688,14 +831,15 @@ router.delete(
 
       if (resultado.affectedRows === 0) {
         return res.status(404).json({
-          error: 'El servicio no existe.',
+          error: 'El servicio no existe.'
         });
       }
 
       res.json({
         ok: true,
-        mensaje: 'Servicio eliminado correctamente.',
+        mensaje: 'Servicio eliminado correctamente.'
       });
+
     } catch (error) {
       next(error);
     }
