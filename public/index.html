@@ -1,6 +1,26 @@
+
 <!DOCTYPE html>
 <html lang="es" data-tema="oscuro">
   <head>
+
+    <!-- Recuperar rutas internas de GitHub Pages -->
+    <script>
+      (function () {
+        var parametros = new URLSearchParams(window.location.search);
+        var ruta = parametros.get('ruta');
+
+        if (ruta && ruta.startsWith('/')) {
+          var busqueda = parametros.get('busqueda') || '';
+
+          window.history.replaceState(
+            null,
+            '',
+            '/orvan' + ruta + busqueda + window.location.hash
+          );
+        }
+      })();
+    </script>
+
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#04060C" />

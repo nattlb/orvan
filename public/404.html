@@ -1,0 +1,37 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>ORVAN - Redireccionando</title>
+  <script>
+    (function () {
+      var ruta = window.location.pathname;
+      var busqueda = window.location.search;
+      var hash = window.location.hash;
+
+      var base = '/orvan/';
+
+      if (!ruta.startsWith(base)) {
+        window.location.replace(base);
+        return;
+      }
+
+      var rutaInterna = ruta.slice(base.length);
+
+      var destino =
+        base +
+        '?ruta=' +
+        encodeURIComponent('/' + rutaInterna) +
+        '&busqueda=' +
+        encodeURIComponent(busqueda) +
+        hash;
+
+      window.location.replace(destino);
+    })();
+  </script>
+</head>
+<body>
+  <p>Redireccionando a ORVAN...</p>
+</body>
+</html>
